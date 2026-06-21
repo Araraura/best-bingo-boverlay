@@ -1,0 +1,56 @@
+body {
+  font-family: sans-serif;
+  margin: 1rem;
+}
+
+.controls {
+  margin-bottom: 1rem;
+}
+
+textarea {
+  width: 100%;
+  max-width: 640px;
+}
+
+.error {
+  color: red;
+  min-height: 1.2em;
+}
+
+.banner {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(var(--size, 5), 1fr);
+  gap: 4px;
+  max-width: 640px;
+}
+
+.tile {
+  aspect-ratio: 1 / 1;
+  padding: 4px;
+  border: 1px solid #333;
+  font-size: 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  /* words stay whole when they fit. some special characters are the preferred wrap points (<wbr>). */
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.tile.marked {
+  background: #ccc;
+}
+
+.tile.free {
+  background: #eee;
+  cursor: default;
+}
+
+.tile.bingo {
+  outline: 2px solid red;
+}

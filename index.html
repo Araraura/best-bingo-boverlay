@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Best Bingo (B)overlay</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="dist/main.js"></script>
+  </head>
+  <body>
+    <section class="controls">
+      <label>Board Size<select id="size"></select></label>
+      <button id="new-sheet" type="button">New Sheet</button>
+      <details>
+        <summary>Edit spaces (one per line)</summary>
+        <textarea id="spaces" rows="10" spellcheck="false"></textarea>
+      </details>
+    </section>
+
+    <p id="error" class="error" role="alert"></p>
+    <div id="banner" class="banner" hidden></div>
+    <main id="board" class="board" aria-label="Bingo board"></main>
+  </body>
+</html>
