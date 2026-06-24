@@ -54,3 +54,46 @@ textarea {
 .tile.bingo {
   outline: 2px solid red;
 }
+
+/* a called space the player may now mark */
+.tile.called {
+  border-color: #1a7f37;
+}
+
+.game-name {
+  font-weight: bold;
+  margin: 0.25rem 0;
+}
+
+/* player: list of called spaces (catch-up panel) */
+.called h2,
+.call-sheet h2 {
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+#called-list {
+  max-width: 640px;
+  columns: 2;
+}
+
+/* scribe: call sheet toggles */
+.call-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 800px;
+}
+
+.call-item {
+  border: 1px solid #333;
+  background: #fff;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.call-item.called {
+  background: #1a7f37;
+  color: #fff;
+}

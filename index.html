@@ -9,16 +9,21 @@
   </head>
   <body>
     <section class="controls">
-      <label>Board Size<select id="size"></select></label>
-      <button id="new-sheet" type="button">New Sheet</button>
-      <details>
-        <summary>Edit spaces (one per line)</summary>
-        <textarea id="spaces" rows="10" spellcheck="false"></textarea>
-      </details>
+      <label>Your name <input id="player-name" type="text" autocomplete="off" /></label>
+      <a href="admin.html">Admin view</a>
     </section>
 
-    <p id="error" class="error" role="alert"></p>
+    <p id="game-name" class="game-name"></p>
+    <p id="message" class="error" role="alert"></p>
     <div id="banner" class="banner" hidden></div>
+
+    <button id="call-bingo" type="button">Call Bingo</button>
+
     <main id="board" class="board" aria-label="Bingo board"></main>
+
+    <section class="called">
+      <h2>Called spaces</h2>
+      <ol id="called-list"></ol>
+    </section>
   </body>
 </html>
