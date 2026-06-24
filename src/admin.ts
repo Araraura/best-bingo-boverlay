@@ -45,11 +45,9 @@ function renderCallList(): void {
   const called = new Set(state.calledSpaces);
   callListEl.replaceChildren();
 
-  // one toggle per unique space
-  const seen = new Set<string>();
-  for (const space of state.spaceList) {
-    if (seen.has(space)) continue;
-    seen.add(space);
+  // one toggle per unique space, sorted alphabetically
+  const uniqueSpaces = [...new Set(state.spaceList)].sort((a, b) => a.localeCompare(b));
+  for (const space of uniqueSpaces) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'call-item';
