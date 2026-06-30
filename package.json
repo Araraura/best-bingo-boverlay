@@ -7,7 +7,6 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "serve": "node serve.mjs",
     "lint": "eslint ."
   },
   "devDependencies": {

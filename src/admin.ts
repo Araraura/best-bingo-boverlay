@@ -4,7 +4,7 @@
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
 import { type GameState } from './game.js';
-import { loadState, subscribe, setConfig, toggleCalled, startNewRound } from './state.js';
+import { loadState, subscribe, setConfig, toggleCalled, startNewRound, resetScores } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('game-name-input') as HTMLInputElement;
@@ -14,6 +14,8 @@ const saveBtn = document.getElementById('save-config') as HTMLButtonElement;
 const newRoundBtn = document.getElementById('new-round') as HTMLButtonElement;
 const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElement;
 const callListEl = document.getElementById('call-list') as HTMLDivElement;
+const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
+const resetScoresBtn = document.getElementById('reset-scores') as HTMLButtonElement;
 
 let state: GameState = loadState();
 
@@ -58,6 +60,16 @@ function renderCallList(): void {
   }
 }
 
+function renderScoreboard(): void {
+  const ranked = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
+  scoreboardEl.replaceChildren();
+  for (const [player, points] of ranked) {
+    const item = document.createElement('li');
+    item.textContent = `${player} - ${points}`;
+    scoreboardEl.appendChild(item);
+  }
+}
+
 saveBtn.addEventListener('click', () => {
   const size = Number(sizeSelect.value) as BoardSize;
   const spaceList = spacesInput.value
@@ -68,6 +80,7 @@ saveBtn.addEventListener('click', () => {
 });
 
 newRoundBtn.addEventListener('click', () => startNewRound());
+resetScoresBtn.addEventListener('click', () => resetScores());
 
 subscribe((next) => {
   const configChanged =
@@ -78,8 +91,10 @@ subscribe((next) => {
   if (configChanged) renderControls();
   renderRoundInfo();
   renderCallList();
+  renderScoreboard();
 });
 
 renderControls();
 renderRoundInfo();
 renderCallList();
+renderScoreboard();

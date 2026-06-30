@@ -97,10 +97,6 @@ export function getLines(size: BoardSize): Line[] {
   return lines;
 }
 
-export function findBingos(sheet: Sheet): Line[] {
-  return getLines(sheet.size).filter((line) => line.cells.every((cellIndex) => sheet.tiles[cellIndex].marked));
-}
-
 export function toggleTile(sheet: Sheet, index: number): void {
   const tile = sheet.tiles[index];
   if (tile.isFree) return; // free space stays marked

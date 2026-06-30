@@ -92,6 +92,8 @@ export interface GameState {
   spaceList: string[]; // shared list - future add/remove abilities alter this between rounds
   calledSpaces: string[]; // shown to players
   roundId: number; // increments on every new round, players regenerate their sheet when it changes
+  roundWinners: string[]; // players who already scored a bingo this round (per round)
+  scores: Record<string, number>;
 }
 
 export function defaultGameState(): GameState {
@@ -101,10 +103,12 @@ export function defaultGameState(): GameState {
     spaceList: [...DEFAULT_SPACES],
     calledSpaces: [],
     roundId: 1,
+    roundWinners: [],
+    scores: {},
   };
 }
 
-// still works even if a space gets un-called after someone marked it.
+// still works even if a space gets uncalled after someone marked it.
 export function verifyBingo(sheet: Sheet, calledSpaces: string[]): Line[] {
   const called = new Set(calledSpaces);
   return getLines(sheet.size).filter((line) =>

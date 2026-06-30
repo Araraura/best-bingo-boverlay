@@ -97,3 +97,12 @@ textarea {
   background: #1a7f37;
   color: #fff;
 }
+
+.scores h2 {
+  font-size: 1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+#scoreboard {
+  max-width: 640px;
+}

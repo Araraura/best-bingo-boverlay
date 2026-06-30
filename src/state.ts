@@ -56,5 +56,19 @@ export function toggleCalled(label: string): void {
 
 export function startNewRound(): void {
   const state = read();
-  write({ ...state, roundId: state.roundId + 1, calledSpaces: [] });
+  write({ ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [] });
+}
+
+// auto awards verified bingos, one award per player per round
+export function awardBingo(player: string, lines: number): number {
+  const state = read();
+  if (state.roundWinners.includes(player)) return 0;
+  const points = lines;
+  const scores = { ...state.scores, [player]: (state.scores[player] ?? 0) + points };
+  write({ ...state, scores, roundWinners: [...state.roundWinners, player] });
+  return points;
+}
+
+export function resetScores(): void {
+  write({ ...read(), scores: {} });
 }

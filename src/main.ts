@@ -3,7 +3,7 @@
 
 import { type Sheet, generateSheet, toggleTile } from './bingo.js';
 import { type GameState, verifyBingo } from './game.js';
-import { loadState, subscribe } from './state.js';
+import { loadState, subscribe, awardBingo } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 // marking is locked for this long after clicking a space that hasn't been called (prevents spam).
@@ -136,15 +136,28 @@ function applyState(next: GameState): void {
 
 callBingoBtn.addEventListener('click', () => {
   if (!sheet) return;
+  const player = nameInput.value.trim();
+  if (!player) {
+    bannerEl.hidden = true;
+    messageEl.textContent = 'Enter your name first, then call bingo.';
+    return;
+  }
   const wins = verifyBingo(sheet, state.calledSpaces);
-  if (wins.length > 0) {
-    const who = nameInput.value.trim() || 'A player';
-    bannerEl.hidden = false;
-    bannerEl.textContent = `BINGO confirmed for ${who}! (${wins.length} line${wins.length > 1 ? 's' : ''})`;
-  } else {
+  if (wins.length === 0) {
     bannerEl.hidden = true;
     messageEl.textContent = 'No valid bingo yet - mark a full called row, column, or diagonal first.';
+    return;
   }
+  if (state.roundWinners.includes(player)) {
+    bannerEl.hidden = true;
+    messageEl.textContent = 'You already scored a bingo this round.';
+    return;
+  }
+  const points = awardBingo(player, wins.length);
+  const lineText = `${wins.length} line${wins.length > 1 ? 's' : ''}`;
+  messageEl.textContent = '';
+  bannerEl.hidden = false;
+  bannerEl.textContent = `BINGO! ${lineText} - +${points} point${points !== 1 ? 's' : ''}!`;
 });
 
 subscribe(applyState);
