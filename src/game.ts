@@ -118,3 +118,40 @@ export function verifyBingo(sheet: Sheet, calledSpaces: string[]): Line[] {
     }),
   );
 }
+
+// actions are the only way to change the shared state. the server applies them via reduce().
+export type Action =
+  | { type: 'setConfig'; changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList'>> }
+  | { type: 'toggleCalled'; label: string }
+  | { type: 'startNewRound' }
+  | { type: 'awardBingo'; player: string; lines: number }
+  | { type: 'resetScores' };
+
+export function reduce(state: GameState, action: Action): GameState {
+  switch (action.type) {
+    case 'setConfig':
+      return { ...state, ...action.changes };
+    case 'toggleCalled': {
+      const called = new Set(state.calledSpaces);
+      if (called.has(action.label)) called.delete(action.label);
+      else called.add(action.label);
+      return { ...state, calledSpaces: [...called] };
+    }
+    case 'startNewRound':
+      return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [] };
+    case 'awardBingo': {
+      // one award per player per round; each line is worth 1 point
+      if (state.roundWinners.includes(action.player)) return state;
+      const updatedScore = (state.scores[action.player] ?? 0) + action.lines;
+      return {
+        ...state,
+        scores: { ...state.scores, [action.player]: updatedScore },
+        roundWinners: [...state.roundWinners, action.player],
+      };
+    }
+    case 'resetScores':
+      return { ...state, scores: {} };
+    default:
+      return state; // ignore unknown actions (input comes from clients)
+  }
+}

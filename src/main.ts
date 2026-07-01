@@ -122,7 +122,11 @@ function renderCalledList(): void {
 }
 
 function applyState(next: GameState): void {
-  const needNewSheet = !sheet || next.roundId !== lastRoundId || next.size !== state.size;
+  const needNewSheet =
+    !sheet ||
+    next.roundId !== lastRoundId ||
+    next.size !== state.size ||
+    JSON.stringify(next.spaceList) !== JSON.stringify(state.spaceList);
   state = next;
   if (needNewSheet) {
     lastRoundId = next.roundId;
@@ -153,11 +157,11 @@ callBingoBtn.addEventListener('click', () => {
     messageEl.textContent = 'You already scored a bingo this round.';
     return;
   }
-  const points = awardBingo(player, wins.length);
-  const lineText = `${wins.length} line${wins.length > 1 ? 's' : ''}`;
+  awardBingo(player, wins.length);
+  const points = wins.length;
   messageEl.textContent = '';
   bannerEl.hidden = false;
-  bannerEl.textContent = `BINGO! ${lineText} - +${points} point${points !== 1 ? 's' : ''}!`;
+  bannerEl.textContent = `BINGO! +${points} point${points !== 1 ? 's' : ''}!`;
 });
 
 subscribe(applyState);
