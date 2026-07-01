@@ -1,6 +1,6 @@
 import { type BoardSize, type Sheet, type Line, getLines } from './bingo.js';
 
-// Scribes edit this list. Future abilities can add/remove spaces between rounds.
+// Scribes edit this list. abilities can add/remove spaces later.
 export const DEFAULT_SPACES: string[] = [
   'Correct Resolution',
   'Same Developer and Publisher',
@@ -89,10 +89,10 @@ export const DEFAULT_SPACES: string[] = [
 export interface GameState {
   name: string;
   size: BoardSize;
-  spaceList: string[]; // shared list - future add/remove abilities alter this between rounds
-  calledSpaces: string[]; // shown to players
-  roundId: number; // increments on every new round, players regenerate their sheet when it changes
-  roundWinners: string[]; // players who already scored a bingo this round (per round)
+  spaceList: string[]; // shared list, abilities can change it between rounds
+  calledSpaces: string[];
+  roundId: number; // bumps each round, players get a new sheet
+  roundWinners: string[];
   scores: Record<string, number>;
 }
 
@@ -119,13 +119,14 @@ export function verifyBingo(sheet: Sheet, calledSpaces: string[]): Line[] {
   );
 }
 
-// actions are the only way to change the shared state. the server applies them via reduce().
+// the only way to change state. the server applies these with reduce.
 export type Action =
   | { type: 'setConfig'; changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList'>> }
   | { type: 'toggleCalled'; label: string }
   | { type: 'startNewRound' }
   | { type: 'awardBingo'; player: string; lines: number }
-  | { type: 'resetScores' };
+  | { type: 'resetScores' }
+  | { type: 'callAll' };
 
 export function reduce(state: GameState, action: Action): GameState {
   switch (action.type) {
@@ -140,7 +141,7 @@ export function reduce(state: GameState, action: Action): GameState {
     case 'startNewRound':
       return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [] };
     case 'awardBingo': {
-      // one award per player per round; each line is worth 1 point
+      // one award per player each round, 1 point per line
       if (state.roundWinners.includes(action.player)) return state;
       const updatedScore = (state.scores[action.player] ?? 0) + action.lines;
       return {
@@ -151,7 +152,9 @@ export function reduce(state: GameState, action: Action): GameState {
     }
     case 'resetScores':
       return { ...state, scores: {} };
+    case 'callAll':
+      return { ...state, calledSpaces: [...new Set(state.spaceList)] };
     default:
-      return state; // ignore unknown actions (input comes from clients)
+      return state; // ignore unknown actions
   }
 }

@@ -1,10 +1,9 @@
-// Configure the game (name, board size, space list), start new rounds, and
-// toggle spaces as called/uncalled. All changes go through the shared state,
-// so the player's view updates live.
+// scribe view: set up the game, start rounds, and toggle spaces as called.
+// changes go through the shared state so players update live.
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
 import { type GameState } from './game.js';
-import { loadState, subscribe, setConfig, toggleCalled, startNewRound, resetScores } from './state.js';
+import { loadState, subscribe, setConfig, toggleCalled, startNewRound, resetScores, callAll } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('game-name-input') as HTMLInputElement;
@@ -16,6 +15,7 @@ const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElemen
 const callListEl = document.getElementById('call-list') as HTMLDivElement;
 const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
 const resetScoresBtn = document.getElementById('reset-scores') as HTMLButtonElement;
+const callAllBtn = document.getElementById('call-all') as HTMLButtonElement;
 
 let state: GameState = loadState();
 
@@ -28,7 +28,7 @@ sizeSelect.replaceChildren(
   }),
 );
 
-// put the saved settings back into the form (only on real changes, not while typing)
+// put saved settings back into the form
 function renderControls(): void {
   nameInput.value = state.name;
   sizeSelect.value = String(state.size);
@@ -47,7 +47,6 @@ function renderCallList(): void {
   const called = new Set(state.calledSpaces);
   callListEl.replaceChildren();
 
-  // one toggle per unique space, sorted alphabetically
   const uniqueSpaces = [...new Set(state.spaceList)].sort((a, b) => a.localeCompare(b));
   for (const space of uniqueSpaces) {
     const button = document.createElement('button');
@@ -81,6 +80,7 @@ saveBtn.addEventListener('click', () => {
 
 newRoundBtn.addEventListener('click', () => startNewRound());
 resetScoresBtn.addEventListener('click', () => resetScores());
+callAllBtn.addEventListener('click', () => callAll());
 
 subscribe((next) => {
   const configChanged =

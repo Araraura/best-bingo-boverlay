@@ -9,7 +9,7 @@ export interface Tile {
 
 export interface Sheet {
   size: BoardSize;
-  tiles: Tile[]; // row-major order, length === size * size
+  tiles: Tile[]; // row by row, size*size tiles
 }
 
 export type LineType = 'row' | 'col' | 'diag-main' | 'diag-anti';
@@ -22,7 +22,6 @@ export interface Line {
 
 export const FREE_LABEL = 'Free Space';
 
-// shuffles items
 function shuffled<ItemType>(items: readonly ItemType[]): ItemType[] {
   const result = items.slice();
   for (let pos = result.length - 1; pos > 0; pos--) {
@@ -32,7 +31,7 @@ function shuffled<ItemType>(items: readonly ItemType[]): ItemType[] {
   return result;
 }
 
-// Center cell for odd boards (5, 7). a random cell for even boards (6).
+// center cell on odd boards, random cell on even
 export function freeCellIndex(size: BoardSize): number {
   if (size % 2 === 1) {
     const middle = (size - 1) / 2;
