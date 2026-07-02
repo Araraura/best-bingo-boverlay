@@ -3,6 +3,7 @@
 // the bingo checks. shared state goes to everyone, a sheet goes only to its player.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { defaultGameState, reduce, verifyBingo } from './dist/game.js';
@@ -22,7 +23,25 @@ const types = {
   '.ico': 'image/x-icon',
 };
 
-let game = defaultGameState();
+const STATE_FILE = join(root, 'game-state.json');
+
+function loadGame() {
+  try {
+    return { ...defaultGameState(), ...JSON.parse(readFileSync(STATE_FILE, 'utf8')) };
+  } catch {
+    return defaultGameState();
+  }
+}
+
+function saveGame() {
+  try {
+    writeFileSync(STATE_FILE, JSON.stringify(game));
+  } catch {
+    // ignoring write errors for now
+  }
+}
+
+let game = loadGame();
 const sheets = new Map();
 const cooldowns = new Map();
 
@@ -48,6 +67,7 @@ const httpServer = createServer(async (req, res) => {
 const wss = new WebSocketServer({ server: httpServer });
 
 function broadcastState() {
+  saveGame();
   const payload = JSON.stringify({ type: 'state', game });
   for (const client of wss.clients) {
     if (client.readyState === client.OPEN) client.send(payload);
