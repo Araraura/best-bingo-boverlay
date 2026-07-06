@@ -1,6 +1,8 @@
 body {
   font-family: sans-serif;
   margin: 1rem;
+  background: #fff;
+  color: #000;
 }
 
 .controls {

@@ -8,10 +8,13 @@
     <script type="module" src="dist/admin.js"></script>
   </head>
   <body>
+    <p id="login-note" hidden>Scribes only. <a href="/auth/login">Log in with Twitch</a></p>
+
+    <main id="scribe-ui" hidden>
     <section class="controls">
       <label>Board name <input id="game-name-input" type="text" autocomplete="off" /></label>
       <label>Board size <select id="size"></select></label>
-      <a href="index.html">Player view</a>
+      <a href="video_overlay.html">Player view</a>
     </section>
 
     <details>
@@ -35,5 +38,6 @@
       <h2>Call sheet (click to toggle called) <button id="call-all" type="button">Call all (debug)</button></h2>
       <div id="call-list" class="call-list"></div>
     </section>
+    </main>
   </body>
 </html>

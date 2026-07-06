@@ -7,6 +7,8 @@ import { loadState, subscribe, onSheet, onNotice, join, mark, claimBingo } from 
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('player-name') as HTMLInputElement;
+const nameLabelEl = document.getElementById('player-name-label') as HTMLLabelElement;
+const adminLinkEl = document.getElementById('admin-link') as HTMLAnchorElement;
 const joinBtn = document.getElementById('join') as HTMLButtonElement;
 const gameNameEl = document.getElementById('game-name') as HTMLParagraphElement;
 const messageEl = document.getElementById('message') as HTMLParagraphElement;
@@ -15,11 +17,23 @@ const callBingoBtn = document.getElementById('call-bingo') as HTMLButtonElement;
 const boardEl = document.getElementById('board') as HTMLDivElement;
 const calledListEl = document.getElementById('called-list') as HTMLOListElement;
 
+const twitchExt = window.Twitch?.ext;
+
 let state: GameState = loadState();
 let sheet: Sheet | null = null;
 let joinedName = '';
+let twitchToken = '';
 let lastRoundId = -1;
 let cooldownTimer: number | undefined;
+
+function hasJoined(): boolean {
+  return Boolean(joinedName || twitchToken);
+}
+
+function sendJoin(): void {
+  if (twitchToken) join({ token: twitchToken });
+  else if (joinedName) join({ name: joinedName });
+}
 
 function render(): void {
   boardEl.replaceChildren();
@@ -107,15 +121,19 @@ subscribe((next) => {
   renderGameName();
   renderCalledList();
   render();
-  if (roundChanged && joinedName) {
-    sheet = null; // old sheet is gone, get a fresh one for the new round
+  if (roundChanged && hasJoined()) {
+    sheet = null;
     bannerEl.hidden = true;
     render();
-    join(joinedName);
+    sendJoin();
   }
 });
 
 joinBtn.addEventListener('click', () => {
+  if (twitchToken) {
+    twitchExt?.actions.requestIdShare();
+    return;
+  }
   const name = nameInput.value.trim();
   if (!name) {
     messageEl.textContent = 'Enter your name first.';
@@ -124,16 +142,30 @@ joinBtn.addEventListener('click', () => {
   joinedName = name;
   bannerEl.hidden = true;
   messageEl.textContent = '';
-  join(name);
+  sendJoin();
 });
 
 callBingoBtn.addEventListener('click', () => {
-  if (!joinedName) {
-    messageEl.textContent = 'Join with a name first.';
+  if (!sheet) {
+    messageEl.textContent = 'Join the game first.';
     return;
   }
   claimBingo();
 });
+
+if (twitchExt) {
+  twitchExt.onAuthorized((auth) => {
+    twitchToken = auth.token;
+    nameLabelEl.hidden = true;
+    adminLinkEl.hidden = true;
+    if (!twitchExt.viewer.isLinked) {
+      joinBtn.textContent = 'Share Twitch identity to play';
+      return;
+    }
+    joinBtn.hidden = true;
+    if (!sheet) sendJoin();
+  });
+}
 
 renderGameName();
 renderCalledList();

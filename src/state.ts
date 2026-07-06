@@ -11,6 +11,7 @@ export interface Notice {
 }
 
 type ServerMessage =
+  | { type: 'hello'; scribe: boolean }
   | { type: 'state'; game: GameState }
   | { type: 'sheet'; sheet: Sheet }
   | ({ type: 'notice' } & Notice);
@@ -18,24 +19,32 @@ type ServerMessage =
 type StateListener = (state: GameState) => void;
 type SheetListener = (sheet: Sheet) => void;
 type NoticeListener = (notice: Notice) => void;
+type HelloListener = (scribe: boolean) => void;
 
 const stateListeners = new Set<StateListener>();
 const sheetListeners = new Set<SheetListener>();
 const noticeListeners = new Set<NoticeListener>();
+const helloListeners = new Set<HelloListener>();
 let current: GameState = defaultGameState();
+let lastHello: boolean | null = null;
 
 type Outgoing =
   | Action
-  | { type: 'join'; name: string }
+  | { type: 'join'; name?: string; token?: string }
   | { type: 'mark'; cellIndex: number }
   | { type: 'claimBingo' };
 
 const pending: Outgoing[] = [];
 let socket: WebSocket;
 
-function connect(): void {
+function backendUrl(): string {
+  if (window.BOVERLAY_BACKEND) return window.BOVERLAY_BACKEND;
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
-  socket = new WebSocket(`${scheme}://${location.host}`);
+  return `${scheme}://${location.host}`;
+}
+
+function connect(): void {
+  socket = new WebSocket(backendUrl());
 
   socket.addEventListener('open', () => {
     for (const action of pending) socket.send(JSON.stringify(action));
@@ -51,6 +60,9 @@ function connect(): void {
       for (const listener of sheetListeners) listener(message.sheet);
     } else if (message.type === 'notice') {
       for (const listener of noticeListeners) listener(message);
+    } else if (message.type === 'hello') {
+      lastHello = message.scribe;
+      for (const listener of helloListeners) listener(message.scribe);
     }
   });
 
@@ -83,6 +95,12 @@ export function onNotice(listener: NoticeListener): () => void {
   return () => noticeListeners.delete(listener);
 }
 
+export function onHello(listener: HelloListener): () => void {
+  helloListeners.add(listener);
+  if (lastHello !== null) listener(lastHello);
+  return () => helloListeners.delete(listener);
+}
+
 // scribe actions
 export function setConfig(changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList'>>): void {
   send({ type: 'setConfig', changes });
@@ -101,8 +119,8 @@ export function callAll(): void {
 }
 
 // player actions
-export function join(name: string): void {
-  send({ type: 'join', name });
+export function join(payload: { name?: string; token?: string }): void {
+  send({ type: 'join', ...payload });
 }
 export function mark(cellIndex: number): void {
   send({ type: 'mark', cellIndex });

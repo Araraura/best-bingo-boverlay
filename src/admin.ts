@@ -3,7 +3,7 @@
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
 import { type GameState } from './game.js';
-import { loadState, subscribe, setConfig, toggleCalled, startNewRound, resetScores, callAll } from './state.js';
+import { loadState, subscribe, onHello, setConfig, toggleCalled, startNewRound, resetScores, callAll } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('game-name-input') as HTMLInputElement;
@@ -16,6 +16,8 @@ const callListEl = document.getElementById('call-list') as HTMLDivElement;
 const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
 const resetScoresBtn = document.getElementById('reset-scores') as HTMLButtonElement;
 const callAllBtn = document.getElementById('call-all') as HTMLButtonElement;
+const scribeUiEl = document.getElementById('scribe-ui') as HTMLElement;
+const loginNoteEl = document.getElementById('login-note') as HTMLParagraphElement;
 
 let state: GameState = loadState();
 
@@ -76,6 +78,11 @@ saveBtn.addEventListener('click', () => {
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
   setConfig({ name: nameInput.value.trim(), size, spaceList });
+});
+
+onHello((scribe) => {
+  scribeUiEl.hidden = !scribe;
+  loginNoteEl.hidden = scribe;
 });
 
 newRoundBtn.addEventListener('click', () => startNewRound());
