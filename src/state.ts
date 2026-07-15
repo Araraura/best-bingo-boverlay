@@ -32,7 +32,8 @@ type Outgoing =
   | Action
   | { type: 'join'; name?: string; token?: string }
   | { type: 'mark'; cellIndex: number }
-  | { type: 'claimBingo' };
+  | { type: 'claimBingo' }
+  | { type: 'addScribe'; name: string };
 
 const pending: Outgoing[] = [];
 let socket: WebSocket;
@@ -116,6 +117,9 @@ export function resetScores(): void {
 }
 export function callAll(): void {
   send({ type: 'callAll' });
+}
+export function addScribe(name: string): void {
+  send({ type: 'addScribe', name });
 }
 
 // player actions

@@ -3,7 +3,18 @@
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
 import { type GameState } from './game.js';
-import { loadState, subscribe, onHello, setConfig, toggleCalled, startNewRound, resetScores, callAll } from './state.js';
+import {
+  loadState,
+  subscribe,
+  onHello,
+  onNotice,
+  setConfig,
+  toggleCalled,
+  startNewRound,
+  resetScores,
+  callAll,
+  addScribe,
+} from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('game-name-input') as HTMLInputElement;
@@ -18,6 +29,9 @@ const resetScoresBtn = document.getElementById('reset-scores') as HTMLButtonElem
 const callAllBtn = document.getElementById('call-all') as HTMLButtonElement;
 const scribeUiEl = document.getElementById('scribe-ui') as HTMLElement;
 const loginNoteEl = document.getElementById('login-note') as HTMLParagraphElement;
+const scribeNameInput = document.getElementById('scribe-name') as HTMLInputElement;
+const addScribeBtn = document.getElementById('add-scribe') as HTMLButtonElement;
+const adminMessageEl = document.getElementById('admin-message') as HTMLParagraphElement;
 
 let state: GameState = loadState();
 
@@ -88,6 +102,18 @@ onHello((scribe) => {
 newRoundBtn.addEventListener('click', () => startNewRound());
 resetScoresBtn.addEventListener('click', () => resetScores());
 callAllBtn.addEventListener('click', () => callAll());
+
+addScribeBtn.addEventListener('click', () => {
+  const name = scribeNameInput.value.trim();
+  if (!name) return;
+  addScribe(name);
+  scribeNameInput.value = '';
+});
+
+// server replies (scribe added, user not found, ...) show under the form
+onNotice((notice) => {
+  adminMessageEl.textContent = notice.message;
+});
 
 subscribe((next) => {
   const configChanged =

@@ -317,7 +317,7 @@ wss.on('connection', (socket, request) => {
       return;
     }
 
-    const scribeActions = ['setConfig', 'toggleCalled', 'resetScores', 'callAll', 'startNewRound'];
+    const scribeActions = ['setConfig', 'toggleCalled', 'resetScores', 'callAll', 'startNewRound', 'addScribe'];
     if (scribeActions.includes(msg.type) && !socket.scribeLogin) {
       sendNotice(socket, 'error', 'Scribes only.');
       return;
@@ -339,6 +339,35 @@ wss.on('connection', (socket, request) => {
         cooldowns.clear();
         broadcastState();
         break;
+
+      case 'addScribe': {
+        const name = String(msg.name ?? '').trim();
+        if (!name) return;
+        if (!twitchConfig) {
+          sendNotice(socket, 'error', 'Adding scribes only works in twitch mode.');
+          return;
+        }
+        try {
+          const users = await helixGet(`users?login=${encodeURIComponent(name.toLowerCase())}`);
+          if (!users || users.length === 0) {
+            sendNotice(socket, 'error', `No twitch user named "${name}".`);
+            return;
+          }
+          const user = users[0];
+          if (scribeIds.has(user.id)) {
+            sendNotice(socket, 'info', `${user.display_name} is already a scribe.`);
+            return;
+          }
+          const entries = loadScribeEntries();
+          entries.push({ name: user.display_name, id: user.id });
+          writeFileSync(SCRIBES_FILE, JSON.stringify(entries, null, 2) + '\n');
+          scribeIds.set(user.id, user.display_name);
+          sendNotice(socket, 'success', `${user.display_name} is now a scribe.`);
+        } catch {
+          sendNotice(socket, 'error', 'Could not look up that username, try again.');
+        }
+        break;
+      }
 
       // player actions
       case 'join': {
