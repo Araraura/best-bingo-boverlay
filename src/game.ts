@@ -141,7 +141,7 @@ export function reduce(state: GameState, action: Action): GameState {
     case 'startNewRound':
       return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [] };
     case 'awardBingo': {
-      // one award per player each round, 1 point per line
+      // 1 point per line
       if (state.roundWinners.includes(action.player)) return state;
       const updatedScore = (state.scores[action.player] ?? 0) + action.lines;
       return {
@@ -152,8 +152,12 @@ export function reduce(state: GameState, action: Action): GameState {
     }
     case 'resetScores':
       return { ...state, scores: {} };
-    case 'callAll':
-      return { ...state, calledSpaces: [...new Set(state.spaceList)] };
+    case 'callAll': {
+      // also uncalls everything if everything's already called
+      const uniqueSpaces = [...new Set(state.spaceList)];
+      const allCalled = uniqueSpaces.every((space) => state.calledSpaces.includes(space));
+      return { ...state, calledSpaces: allCalled ? [] : uniqueSpaces };
+    }
     default:
       return state; // ignore unknown actions
   }
