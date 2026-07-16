@@ -6,7 +6,7 @@
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { readFile } from 'node:fs/promises';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
@@ -259,6 +259,22 @@ let game = loadGame();
 const sheets = new Map();
 const cooldowns = new Map();
 
+// saves the leaderboard to a txt before a reset wipes it. returns the file name, or null
+function exportScores() {
+  const ranked = Object.entries(game.scores).sort((a, b) => b[1] - a[1]);
+  if (ranked.length === 0) return null;
+  const stamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+  const fileName = `scores-${stamp}.txt`;
+  try {
+    mkdirSync(join(root, 'score-exports'), { recursive: true });
+    const lines = ranked.map(([player, points]) => `${player} - ${points}`);
+    writeFileSync(join(root, 'score-exports', fileName), lines.join('\n') + '\n');
+    return fileName;
+  } catch {
+    return null;
+  }
+}
+
 async function serveFile(req, res) {
   try {
     let urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
@@ -327,11 +343,18 @@ wss.on('connection', (socket, request) => {
       // scribe actions
       case 'setConfig':
       case 'toggleCalled':
-      case 'resetScores':
       case 'callAll':
         game = reduce(game, msg);
         broadcastState();
         break;
+
+      case 'resetScores': {
+        const exportedTo = exportScores();
+        game = reduce(game, msg);
+        broadcastState();
+        sendNotice(socket, 'success', exportedTo ? `Scores reset. Backup: score-exports/${exportedTo}` : 'Scores reset.');
+        break;
+      }
 
       case 'startNewRound':
         game = reduce(game, msg);

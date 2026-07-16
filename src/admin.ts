@@ -80,7 +80,12 @@ function renderScoreboard(): void {
   scoreboardEl.replaceChildren();
   for (const [player, points] of ranked) {
     const item = document.createElement('li');
-    item.textContent = `${player} - ${points}`;
+    const profileLink = document.createElement('a');
+    profileLink.href = `https://www.twitch.tv/${encodeURIComponent(player.toLowerCase())}`;
+    profileLink.target = '_blank';
+    profileLink.rel = 'noopener';
+    profileLink.textContent = player;
+    item.append(profileLink, ` - ${points}`);
     scoreboardEl.appendChild(item);
   }
 }
@@ -100,7 +105,11 @@ onHello((scribe) => {
 });
 
 newRoundBtn.addEventListener('click', () => startNewRound());
-resetScoresBtn.addEventListener('click', () => resetScores());
+resetScoresBtn.addEventListener('click', () => {
+  if (window.confirm('Reset all scores?')) {
+    resetScores();
+  }
+});
 callAllBtn.addEventListener('click', () => callAll());
 
 addScribeBtn.addEventListener('click', () => {
