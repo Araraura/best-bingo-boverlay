@@ -92,6 +92,7 @@ export interface GameState {
   spaceList: string[]; // shared list, abilities can change it between rounds
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
+  roundOver: boolean; // a bingo ends the round, no marking or claims until the next one
   roundWinners: string[];
   scores: Record<string, number>;
 }
@@ -103,6 +104,7 @@ export function defaultGameState(): GameState {
     spaceList: [...DEFAULT_SPACES],
     calledSpaces: [],
     roundId: 1,
+    roundOver: false,
     roundWinners: [],
     scores: {},
   };
@@ -139,19 +141,21 @@ export function reduce(state: GameState, action: Action): GameState {
       return { ...state, calledSpaces: [...called] };
     }
     case 'startNewRound':
-      return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [] };
+      return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [], roundOver: false };
     case 'awardBingo': {
-      // 1 point per line
+      // 1 point per line. the bingo also ends the round
       if (state.roundWinners.includes(action.player)) return state;
       const updatedScore = (state.scores[action.player] ?? 0) + action.lines;
       return {
         ...state,
         scores: { ...state.scores, [action.player]: updatedScore },
         roundWinners: [...state.roundWinners, action.player],
+        roundOver: true,
       };
     }
     case 'resetScores':
-      return { ...state, scores: {} };
+      // a score reset starts the season over, back to round 1
+      return { ...state, scores: {}, roundId: 1, calledSpaces: [], roundWinners: [], roundOver: false };
     case 'callAll': {
       // also uncalls everything if everything's already called
       const uniqueSpaces = [...new Set(state.spaceList)];

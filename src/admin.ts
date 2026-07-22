@@ -99,7 +99,7 @@ saveBtn.addEventListener('click', () => {
   setConfig({ name: nameInput.value.trim(), size, spaceList });
 });
 
-onHello((scribe) => {
+onHello(({ scribe }) => {
   scribeUiEl.hidden = !scribe;
   loginNoteEl.hidden = scribe;
 });

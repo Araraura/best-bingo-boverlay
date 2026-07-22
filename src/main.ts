@@ -3,7 +3,7 @@
 
 import { type GameState, verifyBingo } from './game.js';
 import { type Sheet } from './bingo.js';
-import { loadState, subscribe, onSheet, onNotice, join, mark, claimBingo } from './state.js';
+import { loadState, subscribe, onSheet, onNotice, onHello, join, mark, claimBingo } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('player-name') as HTMLInputElement;
@@ -16,6 +16,7 @@ const bannerEl = document.getElementById('banner') as HTMLDivElement;
 const callBingoBtn = document.getElementById('call-bingo') as HTMLButtonElement;
 const boardEl = document.getElementById('board') as HTMLDivElement;
 const calledListEl = document.getElementById('called-list') as HTMLOListElement;
+const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
 
 const twitchExt = window.Twitch?.ext;
 
@@ -64,7 +65,12 @@ function render(): void {
 
 function renderGameName(): void {
   const title = state.name || 'Bingo';
-  gameNameEl.textContent = `${title} - Round ${state.roundId} (${state.size}x${state.size})`;
+  let text = `${title} - Round ${state.roundId} (${state.size}x${state.size})`;
+  if (state.roundOver) {
+    const winner = state.roundWinners[0];
+    text += ` - ROUND OVER! ${winner ? `Winner: ${winner}` : ''} Waiting for the next round.`;
+  }
+  gameNameEl.textContent = text;
 }
 
 function renderCalledList(): void {
@@ -73,6 +79,16 @@ function renderCalledList(): void {
     const item = document.createElement('li');
     appendLabelWithBreaks(item, space);
     calledListEl.appendChild(item);
+  }
+}
+
+function renderScoreboard(): void {
+  const ranked = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
+  scoreboardEl.replaceChildren();
+  for (const [player, points] of ranked) {
+    const item = document.createElement('li');
+    item.textContent = `${player} - ${points}`;
+    scoreboardEl.appendChild(item);
   }
 }
 
@@ -120,10 +136,11 @@ subscribe((next) => {
   lastRoundId = next.roundId;
   renderGameName();
   renderCalledList();
+  renderScoreboard();
   render();
   if (roundChanged && hasJoined()) {
+    // banner stays, so a bingo announcement survives into the new round
     sheet = null;
-    bannerEl.hidden = true;
     render();
     sendJoin();
   }
@@ -140,8 +157,18 @@ joinBtn.addEventListener('click', () => {
     return;
   }
   joinedName = name;
+  localStorage.setItem('boverlay.name', name);
   bannerEl.hidden = true;
   messageEl.textContent = '';
+  sendJoin();
+});
+
+onHello(({ twitch }) => {
+  if (twitch || joinedName || twitchToken) return;
+  const savedName = localStorage.getItem('boverlay.name');
+  if (!savedName) return;
+  nameInput.value = savedName;
+  joinedName = savedName;
   sendJoin();
 });
 

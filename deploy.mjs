@@ -28,4 +28,3 @@ run(
 );
 
 console.log('\ndeployed. scribe page: https://livestreambingo.com/admin.html');
-console.log('reminder: frontend changes also need node package-extension.mjs + a zip upload to twitch.');

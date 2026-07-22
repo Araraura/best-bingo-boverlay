@@ -10,8 +10,13 @@ export interface Notice {
   cooldownMs?: number;
 }
 
+export interface Hello {
+  scribe: boolean;
+  twitch: boolean;
+}
+
 type ServerMessage =
-  | { type: 'hello'; scribe: boolean }
+  | ({ type: 'hello' } & Hello)
   | { type: 'state'; game: GameState }
   | { type: 'sheet'; sheet: Sheet }
   | ({ type: 'notice' } & Notice);
@@ -19,14 +24,14 @@ type ServerMessage =
 type StateListener = (state: GameState) => void;
 type SheetListener = (sheet: Sheet) => void;
 type NoticeListener = (notice: Notice) => void;
-type HelloListener = (scribe: boolean) => void;
+type HelloListener = (hello: Hello) => void;
 
 const stateListeners = new Set<StateListener>();
 const sheetListeners = new Set<SheetListener>();
 const noticeListeners = new Set<NoticeListener>();
 const helloListeners = new Set<HelloListener>();
 let current: GameState = defaultGameState();
-let lastHello: boolean | null = null;
+let lastHello: Hello | null = null;
 
 type Outgoing =
   | Action
@@ -62,8 +67,8 @@ function connect(): void {
     } else if (message.type === 'notice') {
       for (const listener of noticeListeners) listener(message);
     } else if (message.type === 'hello') {
-      lastHello = message.scribe;
-      for (const listener of helloListeners) listener(message.scribe);
+      lastHello = { scribe: message.scribe, twitch: message.twitch };
+      for (const listener of helloListeners) listener(lastHello);
     }
   });
 

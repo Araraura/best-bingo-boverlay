@@ -316,13 +316,20 @@ function broadcastState() {
   }
 }
 
+function broadcastNotice(level, message) {
+  const payload = JSON.stringify({ type: 'notice', level, message });
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN) client.send(payload);
+  }
+}
+
 const sendSheet = (socket, sheet) => socket.send(JSON.stringify({ type: 'sheet', sheet }));
 const sendNotice = (socket, level, message, cooldownMs) =>
   socket.send(JSON.stringify({ type: 'notice', level, message, cooldownMs }));
 
 wss.on('connection', (socket, request) => {
   socket.scribeLogin = scribeFromCookies(request.headers.cookie);
-  socket.send(JSON.stringify({ type: 'hello', scribe: Boolean(socket.scribeLogin) }));
+  socket.send(JSON.stringify({ type: 'hello', scribe: Boolean(socket.scribeLogin), twitch: Boolean(twitchConfig) }));
   socket.send(JSON.stringify({ type: 'state', game }));
 
   socket.on('message', async (raw) => {
@@ -351,6 +358,8 @@ wss.on('connection', (socket, request) => {
       case 'resetScores': {
         const exportedTo = exportScores();
         game = reduce(game, msg);
+        sheets.clear(); // the reset goes back to round 1, so everyone gets a fresh sheet
+        cooldowns.clear();
         broadcastState();
         sendNotice(socket, 'success', exportedTo ? `Scores reset. Backup: score-exports/${exportedTo}` : 'Scores reset.');
         break;
@@ -434,6 +443,10 @@ wss.on('connection', (socket, request) => {
         const tile = sheet.tiles[msg.cellIndex];
         if (!tile || tile.isFree) return;
 
+        if (game.roundOver) {
+          sendNotice(socket, 'info', 'Round is over. Waiting for the next one to start.');
+          return;
+        }
         const cooldownUntil = cooldowns.get(sheetKey) ?? 0;
         if (cooldownUntil > Date.now()) {
           sendNotice(socket, 'error', 'Slow down.', cooldownUntil - Date.now());
@@ -456,8 +469,8 @@ wss.on('connection', (socket, request) => {
         const name = socket.playerName;
         const sheet = socket.sheetKey && sheets.get(socket.sheetKey);
         if (!sheet) return;
-        if (game.roundWinners.includes(name)) {
-          sendNotice(socket, 'info', 'You already scored a bingo this round.');
+        if (game.roundOver) {
+          sendNotice(socket, 'info', 'Round is over. Waiting for the next one to start.');
           return;
         }
         const wins = verifyBingo(sheet, game.calledSpaces);
@@ -465,10 +478,12 @@ wss.on('connection', (socket, request) => {
           sendNotice(socket, 'error', 'No valid bingo yet - mark a full called line first.');
           return;
         }
+        // a win freezes the round until a scribe starts the next one
         game = reduce(game, { type: 'awardBingo', player: name, lines: wins.length });
         broadcastState();
         const lineText = `${wins.length} line${wins.length > 1 ? 's' : ''}`;
-        sendNotice(socket, 'success', `BINGO! ${lineText} - +${wins.length} point${wins.length > 1 ? 's' : ''}!`);
+        const pointText = `${wins.length} point${wins.length > 1 ? 's' : ''}`;
+        broadcastNotice('success', `${name} got a BINGO! ${lineText}, +${pointText}!`);
         break;
       }
     }
