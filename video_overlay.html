@@ -10,28 +10,38 @@
     <script type="module" src="dist/main.js"></script>
   </head>
   <body>
-    <section class="controls">
-      <label id="player-name-label">Your name <input id="player-name" type="text" autocomplete="off" /></label>
-      <button id="join" type="button">Join</button>
-      <a id="admin-link" href="admin.html">Admin view</a>
-    </section>
-
-    <p id="game-name" class="game-name"></p>
-    <p id="message" class="error" role="alert"></p>
-    <div id="banner" class="banner" hidden></div>
-
-    <button id="call-bingo" type="button">Call Bingo</button>
-
-    <main id="board" class="board" aria-label="Bingo board"></main>
-
-    <section class="called">
-      <h2>Called spaces</h2>
-      <ol id="called-list"></ol>
-    </section>
-
-    <section class="scores">
-      <h2>Scoreboard</h2>
+    <aside class="left-panel panel">
+      <h2>Leaderboard</h2>
       <ol id="scoreboard"></ol>
-    </section>
+    </aside>
+
+    <main class="center-panel">
+      <section class="controls">
+        <label id="player-name-label">Your name <input id="player-name" type="text" autocomplete="off" /></label>
+        <button id="join" type="button">Join</button>
+        <a id="admin-link" href="admin.html">Admin view</a>
+      </section>
+
+      <button id="call-bingo" type="button">Call Bingo</button>
+      <p id="game-name" class="game-name"></p>
+      <p id="message" class="error" role="alert"></p>
+      <div id="banner" class="banner" hidden></div>
+
+      <div id="board" class="board" aria-label="Bingo board"></div>
+
+      <section class="called panel">
+        <h2>Called spaces</h2>
+        <ol id="called-list"></ol>
+      </section>
+    </main>
+
+    <aside class="right-panel">
+      <!-- abilities go here later -->
+    </aside>
+
+    <div class="display-settings panel">
+      <button id="mode-toggle" type="button">Mode: dark</button>
+      <label>Opacity <input id="alpha-slider" type="range" min="0" max="100" value="85" /></label>
+    </div>
   </body>
 </html>

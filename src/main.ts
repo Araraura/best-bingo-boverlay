@@ -18,6 +18,9 @@ const boardEl = document.getElementById('board') as HTMLDivElement;
 const calledListEl = document.getElementById('called-list') as HTMLOListElement;
 const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
 
+const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
+const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
+
 const twitchExt = window.Twitch?.ext;
 
 let state: GameState = loadState();
@@ -35,6 +38,34 @@ function sendJoin(): void {
   if (twitchToken) join({ token: twitchToken });
   else if (joinedName) join({ name: joinedName });
 }
+
+function fitLabel(tile: HTMLElement): void {
+  if (!tile.clientHeight) return; // not laid out yet
+  const style = getComputedStyle(tile);
+  const roomWidth = tile.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const roomHeight = tile.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  const label = document.createRange();
+
+  let tooSmall = 5;
+  let tooBig = tile.clientHeight / 3;
+  for (let step = 0; step < 7; step++) {
+    const size = (tooSmall + tooBig) / 2;
+    tile.style.fontSize = `${size}px`;
+    label.selectNodeContents(tile);
+    const text = label.getBoundingClientRect();
+    if (text.width <= roomWidth && text.height <= roomHeight) tooSmall = size;
+    else tooBig = size;
+  }
+  tile.style.fontSize = `${tooSmall}px`;
+}
+
+function fitAllLabels(): void {
+  for (const tile of boardEl.children) fitLabel(tile as HTMLElement);
+}
+
+// refits when the board changes size, which also covers the first layout
+new ResizeObserver(fitAllLabels).observe(boardEl);
+window.addEventListener('resize', fitAllLabels);
 
 function render(): void {
   boardEl.replaceChildren();
@@ -61,6 +92,7 @@ function render(): void {
     });
     boardEl.appendChild(tileButton);
   });
+  fitAllLabels();
 }
 
 function renderGameName(): void {
@@ -139,7 +171,6 @@ subscribe((next) => {
   renderScoreboard();
   render();
   if (roundChanged && hasJoined()) {
-    // banner stays, so a bingo announcement survives into the new round
     sheet = null;
     render();
     sendJoin();
@@ -183,6 +214,7 @@ callBingoBtn.addEventListener('click', () => {
 if (twitchExt) {
   twitchExt.onAuthorized((auth) => {
     twitchToken = auth.token;
+    document.body.classList.remove('local');
     nameLabelEl.hidden = true;
     adminLinkEl.hidden = true;
     if (!twitchExt.viewer.isLinked) {
@@ -194,5 +226,34 @@ if (twitchExt) {
   });
 }
 
+function applyDisplaySettings(): void {
+  const mode = localStorage.getItem('boverlay.mode') ?? 'dark';
+  const alpha = Number(localStorage.getItem('boverlay.alpha') ?? '85');
+  document.documentElement.dataset.mode = mode;
+  document.documentElement.style.setProperty('--panel-alpha', String(alpha / 100));
+  modeToggle.textContent = `Mode: ${mode}`;
+  alphaSlider.value = String(alpha);
+}
+
+modeToggle.addEventListener('click', () => {
+  const current = localStorage.getItem('boverlay.mode') ?? 'dark';
+  localStorage.setItem('boverlay.mode', current === 'dark' ? 'light' : 'dark');
+  applyDisplaySettings();
+});
+
+alphaSlider.addEventListener('input', () => {
+  localStorage.setItem('boverlay.alpha', alphaSlider.value);
+  applyDisplaySettings();
+});
+
+if (window.self === window.top) {
+  document.body.classList.add('local');
+} else {
+  window.setTimeout(() => {
+    if (!twitchToken) document.body.classList.add('local');
+  }, 1000);
+}
+
+applyDisplaySettings();
 renderGameName();
 renderCalledList();

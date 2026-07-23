@@ -1,110 +1,230 @@
+:root {
+  --green: #23b23c;
+  --line: #e6e6e6;
+  --fill: 0, 0, 0;
+  --page-bg: #0d0d0d;
+  --panel-alpha: 0.85;
+}
+
+:root[data-mode='light'] {
+  --green: #1a8a2e;
+  --line: #141414;
+  --fill: 255, 255, 255;
+  --page-bg: #ededed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: sans-serif;
-  margin: 1rem;
-  background: #fff;
-  color: #000;
+  margin: 0;
+  padding: 8px;
+  font-family: Arial, sans-serif;
+  color: var(--green);
+  background: transparent;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 780px) 240px;
+  grid-template-areas: 'left center right';
+  justify-content: center;
+  gap: 12px;
 }
 
-.controls {
-  margin-bottom: 1rem;
+body.admin {
+  display: block;
+  max-width: 960px;
+  margin: 0 auto;
+  background: var(--page-bg);
 }
 
+body.local {
+  background: var(--page-bg);
+}
+
+.left-panel {
+  grid-area: left;
+  align-self: start;
+}
+
+.center-panel {
+  grid-area: center;
+  min-width: 0;
+}
+
+.right-panel {
+  grid-area: right;
+}
+
+.panel {
+  background: rgba(var(--fill), var(--panel-alpha));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+h2 {
+  font-size: 1rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+button,
+input,
+select,
 textarea {
-  width: 100%;
-  max-width: 640px;
+  font: inherit;
+  color: var(--green);
+  background: rgba(var(--fill), var(--panel-alpha));
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--green);
+}
+
+a {
+  color: var(--green);
+}
+
+#call-bingo {
+  display: block;
+  margin: 0 auto 8px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  padding: 8px 28px;
+}
+
+.game-name {
+  text-align: center;
+  font-weight: bold;
+  margin: 0.25rem 0;
 }
 
 .error {
-  color: red;
+  color: #ff5b5b;
   min-height: 1.2em;
+  text-align: center;
+  margin: 0.25rem 0;
 }
 
 .banner {
+  text-align: center;
   font-weight: bold;
-  margin-bottom: 0.5rem;
+  font-size: 1.15rem;
+  margin: 0.25rem 0;
 }
 
 .board {
   display: grid;
   grid-template-columns: repeat(var(--size, 5), 1fr);
   gap: 4px;
-  max-width: 640px;
+  /* text grows with the tiles, smaller boards get bigger text */
+  font-size: clamp(0.7rem, calc(46vw / var(--size, 5) / 6), 1.15rem);
 }
 
 .tile {
   aspect-ratio: 1 / 1;
-  padding: 4px;
-  border: 1px solid #333;
-  font-size: 0.75rem;
+  padding: 7%;
+  font-size: inherit;
   text-align: center;
   cursor: pointer;
-  /* words stay whole when they fit. some special characters are the preferred wrap points (<wbr>). */
+  border-radius: 4px;
   min-width: 0;
   white-space: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow: hidden;
+}
+
+.tile.called {
+  border: 2px solid var(--green);
 }
 
 .tile.marked {
-  background: #ccc;
+  background: var(--green);
+  color: #06180a;
 }
 
 .tile.free {
-  background: #eee;
+  background: rgba(35, 178, 60, 0.45);
   cursor: default;
 }
 
 .tile.bingo {
-  outline: 2px solid red;
+  outline: 3px solid var(--green);
+  filter: brightness(1.25);
 }
 
-/* a called space the player may now mark */
-.tile.called {
-  border-color: #1a7f37;
-}
-
-.game-name {
-  font-weight: bold;
+#called-list,
+#scoreboard {
   margin: 0.25rem 0;
-}
-
-/* player: list of called spaces (catch-up panel) */
-.called h2,
-.call-sheet h2 {
-  font-size: 1rem;
-  margin: 1rem 0 0.5rem;
+  padding-left: 1.5rem;
 }
 
 #called-list {
-  max-width: 640px;
   columns: 2;
+  column-gap: 24px;
 }
 
-/* scribe: call sheet toggles */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+textarea {
+  width: 100%;
+}
+
+/* line/opacity controls, pinned to the corner of the overlay */
+.display-settings {
+  position: fixed;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+input[type='range'] {
+  width: 90px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+/* scribe call sheet */
 .call-list {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-width: 800px;
 }
 
 .call-item {
-  border: 1px solid #333;
-  background: #fff;
-  padding: 4px 8px;
   font-size: 0.8rem;
-  cursor: pointer;
 }
 
 .call-item.called {
-  background: #1a7f37;
-  color: #fff;
+  background: var(--green);
+  color: #06180a;
 }
 
-.scores h2 {
-  font-size: 1rem;
-  margin: 1rem 0 0.5rem;
-}
+@media (max-width: 640px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'center' 'left' 'right';
+  }
 
-#scoreboard {
-  max-width: 640px;
+  .display-settings {
+    position: static;
+    justify-content: flex-end;
+  }
 }
