@@ -87,6 +87,11 @@ button:hover {
   border-color: var(--green);
 }
 
+#reset-scores {
+  color: #fff;
+  background: #c0392b;
+}
+
 a {
   color: var(--green);
 }

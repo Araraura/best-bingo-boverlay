@@ -27,4 +27,4 @@ run(
   `ssh ${HOST} "cd ${DIR} && npm install --omit=dev && chown -R boverlay:boverlay ${DIR} && systemctl restart boverlay && sleep 1 && journalctl -u boverlay -n 5 --no-pager"`,
 );
 
-console.log('\ndeployed. scribe page: https://livestreambingo.com/admin.html');
+console.log('\ndeployed.');
