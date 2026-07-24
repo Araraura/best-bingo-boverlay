@@ -1,4 +1,4 @@
-import { type BoardSize, type Sheet, type Line, getLines } from './bingo.js';
+import { type BoardSize, type Sheet, type Line, getLines, FREE_LABEL } from './bingo.js';
 
 // Scribes edit this list. abilities can add/remove spaces later.
 export const DEFAULT_SPACES: string[] = [
@@ -90,6 +90,8 @@ export interface GameState {
   name: string;
   size: BoardSize;
   spaceList: string[]; // shared list, abilities can change it between rounds
+  centerSpace: string;
+  centerIsFree: boolean; // free means it starts marked, otherwise it has to be called
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
   roundOver: boolean; // a bingo ends the round, no marking or claims until the next one
@@ -102,12 +104,27 @@ export function defaultGameState(): GameState {
     name: '',
     size: 5,
     spaceList: [...DEFAULT_SPACES],
+    centerSpace: FREE_LABEL,
+    centerIsFree: true,
     calledSpaces: [],
     roundId: 1,
     roundOver: false,
     roundWinners: [],
     scores: {},
   };
+}
+
+// bigger boards are harder, so a line is worth more
+export const POINTS_PER_LINE: Record<BoardSize, number> = { 5: 1, 6: 2, 7: 3 };
+
+// what scribes can call. a center space that isn't free has to be callable too,
+// but 6x6 boards have no center at all
+export function callableSpaces(state: GameState): string[] {
+  const spaces = [...new Set(state.spaceList)];
+  const center = state.centerSpace.trim();
+  const hasCenter = state.size % 2 === 1;
+  if (hasCenter && !state.centerIsFree && center && !spaces.includes(center)) spaces.push(center);
+  return spaces;
 }
 
 // still works even if a space gets uncalled after someone marked it.
@@ -123,7 +140,10 @@ export function verifyBingo(sheet: Sheet, calledSpaces: string[]): Line[] {
 
 // the only way to change state. the server applies these with reduce.
 export type Action =
-  | { type: 'setConfig'; changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList'>> }
+  | {
+      type: 'setConfig';
+      changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'>>;
+    }
   | { type: 'toggleCalled'; label: string }
   | { type: 'startNewRound' }
   | { type: 'awardBingo'; player: string; lines: number }
@@ -143,9 +163,8 @@ export function reduce(state: GameState, action: Action): GameState {
     case 'startNewRound':
       return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [], roundOver: false };
     case 'awardBingo': {
-      // 1 point per line. the bingo also ends the round
       if (state.roundWinners.includes(action.player)) return state;
-      const updatedScore = (state.scores[action.player] ?? 0) + action.lines;
+      const updatedScore = (state.scores[action.player] ?? 0) + action.lines * POINTS_PER_LINE[state.size];
       return {
         ...state,
         scores: { ...state.scores, [action.player]: updatedScore },
@@ -154,15 +173,13 @@ export function reduce(state: GameState, action: Action): GameState {
       };
     }
     case 'resetScores':
-      // a score reset starts the season over, back to round 1
       return { ...state, scores: {}, roundId: 1, calledSpaces: [], roundWinners: [], roundOver: false };
     case 'callAll': {
-      // also uncalls everything if everything's already called
-      const uniqueSpaces = [...new Set(state.spaceList)];
+      const uniqueSpaces = callableSpaces(state);
       const allCalled = uniqueSpaces.every((space) => state.calledSpaces.includes(space));
       return { ...state, calledSpaces: allCalled ? [] : uniqueSpaces };
     }
     default:
-      return state; // ignore unknown actions
+      return state;
   }
 }

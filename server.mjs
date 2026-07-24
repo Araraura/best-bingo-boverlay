@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
-import { defaultGameState, reduce, verifyBingo } from './dist/game.js';
+import { defaultGameState, reduce, verifyBingo, POINTS_PER_LINE } from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
 
 const root = process.cwd();
@@ -60,7 +60,6 @@ function loadScribeEntries() {
   }
 }
 
-// edit scribes.json + restart to add.
 async function resolveScribes() {
   const entries = loadScribeEntries();
   const pending = entries.filter((entry) => !entry.id && entry.name);
@@ -104,7 +103,6 @@ function parseCookies(header) {
   return cookies;
 }
 
-// the scribe login from a valid session cookie, or null
 function scribeFromCookies(header) {
   if (!twitchConfig) return 'dev';
   const raw = parseCookies(header).scribe;
@@ -259,7 +257,7 @@ let game = loadGame();
 const sheets = new Map();
 const cooldowns = new Map();
 
-// saves the leaderboard to a txt before a reset wipes it. returns the file name, or null
+// runs before a reset wipes the scores
 function exportScores() {
   const ranked = Object.entries(game.scores).sort((a, b) => b[1] - a[1]);
   if (ranked.length === 0) return null;
@@ -426,7 +424,7 @@ wss.on('connection', (socket, request) => {
         socket.sheetKey = sheetKey;
         if (!sheets.has(sheetKey)) {
           try {
-            sheets.set(sheetKey, generateSheet(game.size, game.spaceList));
+            sheets.set(sheetKey, generateSheet(game.size, game.spaceList, game.centerSpace, game.centerIsFree));
           } catch (error) {
             sendNotice(socket, 'error', error instanceof Error ? error.message : String(error));
             return;
@@ -479,10 +477,11 @@ wss.on('connection', (socket, request) => {
           return;
         }
         // a win freezes the round until a scribe starts the next one
+        const points = wins.length * POINTS_PER_LINE[game.size];
         game = reduce(game, { type: 'awardBingo', player: name, lines: wins.length });
         broadcastState();
         const lineText = `${wins.length} line${wins.length > 1 ? 's' : ''}`;
-        const pointText = `${wins.length} point${wins.length > 1 ? 's' : ''}`;
+        const pointText = `${points} point${points > 1 ? 's' : ''}`;
         broadcastNotice('success', `${name} got a BINGO! ${lineText}, +${pointText}!`);
         break;
       }

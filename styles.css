@@ -123,7 +123,7 @@ a {
   display: grid;
   grid-template-columns: repeat(var(--size, 5), 1fr);
   gap: 4px;
-  /* text grows with the tiles, smaller boards get bigger text */
+  /* only a starting point, main.ts fits each label to its tile */
   font-size: clamp(0.7rem, calc(46vw / var(--size, 5) / 6), 1.15rem);
 }
 
@@ -183,7 +183,6 @@ textarea {
   width: 100%;
 }
 
-/* line/opacity controls, pinned to the corner of the overlay */
 .display-settings {
   position: fixed;
   top: 6px;
@@ -201,7 +200,6 @@ input[type='range'] {
   border: none;
 }
 
-/* scribe call sheet */
 .call-list {
   display: flex;
   flex-wrap: wrap;

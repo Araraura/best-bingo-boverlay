@@ -108,7 +108,9 @@ export function onHello(listener: HelloListener): () => void {
 }
 
 // scribe actions
-export function setConfig(changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList'>>): void {
+export function setConfig(
+  changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'>>,
+): void {
   send({ type: 'setConfig', changes });
 }
 export function toggleCalled(label: string): void {

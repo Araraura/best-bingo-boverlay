@@ -17,7 +17,7 @@ export type LineType = 'row' | 'col' | 'diag-main' | 'diag-anti';
 export interface Line {
   type: LineType;
   index: number; // row/column index, 0 for diagonals
-  cells: number[]; // tile indices that make up the line
+  cells: number[];
 }
 
 export const FREE_LABEL = 'Free Space';
@@ -31,19 +31,28 @@ function shuffled<ItemType>(items: readonly ItemType[]): ItemType[] {
   return result;
 }
 
-// center cell on odd boards, random cell on even
-export function freeCellIndex(size: BoardSize): number {
-  if (size % 2 === 1) {
-    const middle = (size - 1) / 2;
-    return middle * size + middle;
-  }
-  return Math.floor(Math.random() * size * size);
+// only odd numbered boards have a center cell
+export function centerCellIndex(size: BoardSize): number | null {
+  if (size % 2 === 0) return null;
+  const middle = (size - 1) / 2;
+  return middle * size + middle;
 }
 
-export function generateSheet(size: BoardSize, spaces: readonly string[]): Sheet {
+// free means the center starts marked and never needs calling
+export function generateSheet(
+  size: BoardSize,
+  spaces: readonly string[],
+  centerSpace: string = FREE_LABEL,
+  centerIsFree = true,
+): Sheet {
   const cellCount = size * size;
-  const spacesNeeded = cellCount - 1; // one cell is always the free space
-  const pool = spaces.map((space) => space.trim()).filter((space) => space.length > 0);
+  const centerCell = centerCellIndex(size);
+  const spacesNeeded = centerCell === null ? cellCount : cellCount - 1;
+  const centerLabel = centerSpace.trim() || FREE_LABEL;
+  const pool = spaces
+    .map((space) => space.trim())
+    .filter((space) => space.length > 0)
+    .filter((space) => centerCell === null || space !== centerLabel);
   if (pool.length < spacesNeeded) {
     throw new Error(
       `A ${size}x${size} sheet needs at least ${spacesNeeded} spaces, but only ${pool.length} were provided.`,
@@ -51,12 +60,11 @@ export function generateSheet(size: BoardSize, spaces: readonly string[]): Sheet
   }
 
   const chosenSpaces = shuffled(pool).slice(0, spacesNeeded);
-  const freeCell = freeCellIndex(size);
   const tiles: Tile[] = [];
   let nextSpace = 0;
   for (let cellIndex = 0; cellIndex < cellCount; cellIndex++) {
-    if (cellIndex === freeCell) {
-      tiles.push({ label: FREE_LABEL, isFree: true, marked: true });
+    if (cellIndex === centerCell) {
+      tiles.push({ label: centerLabel, isFree: centerIsFree, marked: centerIsFree });
     } else {
       tiles.push({ label: chosenSpaces[nextSpace], isFree: false, marked: false });
       nextSpace++;

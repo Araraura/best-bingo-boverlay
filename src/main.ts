@@ -63,7 +63,7 @@ function fitAllLabels(): void {
   for (const tile of boardEl.children) fitLabel(tile as HTMLElement);
 }
 
-// refits when the board changes size, which also covers the first layout
+// also covers the first layout, when the tiles get their size
 new ResizeObserver(fitAllLabels).observe(boardEl);
 window.addEventListener('resize', fitAllLabels);
 

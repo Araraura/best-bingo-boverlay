@@ -2,7 +2,7 @@
 // changes go through the shared state so players update live.
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
-import { type GameState } from './game.js';
+import { type GameState, callableSpaces } from './game.js';
 import {
   loadState,
   subscribe,
@@ -20,6 +20,8 @@ import { appendLabelWithBreaks } from './labels.js';
 const nameInput = document.getElementById('game-name-input') as HTMLInputElement;
 const sizeSelect = document.getElementById('size') as HTMLSelectElement;
 const spacesInput = document.getElementById('spaces') as HTMLTextAreaElement;
+const centerSpaceInput = document.getElementById('center-space') as HTMLInputElement;
+const centerIsFreeInput = document.getElementById('center-is-free') as HTMLInputElement;
 const saveBtn = document.getElementById('save-config') as HTMLButtonElement;
 const newRoundBtn = document.getElementById('new-round') as HTMLButtonElement;
 const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElement;
@@ -44,16 +46,17 @@ sizeSelect.replaceChildren(
   }),
 );
 
-// put saved settings back into the form
 function renderControls(): void {
   nameInput.value = state.name;
   sizeSelect.value = String(state.size);
   spacesInput.value = state.spaceList.join('\n');
+  centerSpaceInput.value = state.centerSpace;
+  centerIsFreeInput.checked = state.centerIsFree;
 }
 
 function renderRoundInfo(): void {
   const title = state.name || 'Bingo';
-  const uniqueCount = new Set(state.spaceList).size;
+  const uniqueCount = callableSpaces(state).length;
   roundInfoEl.textContent =
     `${title} - Round ${state.roundId} (${state.size}x${state.size}) - ` +
     `${state.calledSpaces.length}/${uniqueCount} called`;
@@ -63,7 +66,7 @@ function renderCallList(): void {
   const called = new Set(state.calledSpaces);
   callListEl.replaceChildren();
 
-  const uniqueSpaces = [...new Set(state.spaceList)].sort((a, b) => a.localeCompare(b));
+  const uniqueSpaces = callableSpaces(state).sort((a, b) => a.localeCompare(b));
   for (const space of uniqueSpaces) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -96,7 +99,13 @@ saveBtn.addEventListener('click', () => {
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  setConfig({ name: nameInput.value.trim(), size, spaceList });
+  setConfig({
+    name: nameInput.value.trim(),
+    size,
+    spaceList,
+    centerSpace: centerSpaceInput.value.trim(),
+    centerIsFree: centerIsFreeInput.checked,
+  });
 });
 
 onHello(({ scribe }) => {
@@ -119,7 +128,6 @@ addScribeBtn.addEventListener('click', () => {
   scribeNameInput.value = '';
 });
 
-// server replies (scribe added, user not found, ...) show under the form
 onNotice((notice) => {
   adminMessageEl.textContent = notice.message;
 });
