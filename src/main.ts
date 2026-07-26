@@ -1,7 +1,7 @@
 // Player view. joins with a name, renders the server's sheet, and forwards clicks and claims.
 // the server owns everything, this just shows what comes back.
 
-import { type GameState, verifyBingo } from './game.js';
+import { type GameState, verifyBingo, roundOverText } from './game.js';
 import { type Sheet } from './bingo.js';
 import { loadState, subscribe, onSheet, onNotice, onHello, join, mark, claimBingo } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
@@ -97,12 +97,9 @@ function render(): void {
 
 function renderGameName(): void {
   const title = state.name || 'Bingo';
-  let text = `${title} - Round ${state.roundId} (${state.size}x${state.size})`;
-  if (state.roundOver) {
-    const winner = state.roundWinners[0];
-    text += ` - ROUND OVER! ${winner ? `Winner: ${winner}` : ''} Waiting for the next round.`;
-  }
-  gameNameEl.textContent = text;
+  const roundOver = roundOverText(state);
+  const text = `${title} - Round ${state.roundId} (${state.roundSize}x${state.roundSize})`;
+  gameNameEl.textContent = roundOver ? `${text} - ${roundOver}` : text;
 }
 
 function renderCalledList(): void {
@@ -170,6 +167,7 @@ subscribe((next) => {
   renderCalledList();
   renderScoreboard();
   render();
+  if (!state.roundOver) bannerEl.hidden = true;
   if (roundChanged && hasJoined()) {
     sheet = null;
     render();

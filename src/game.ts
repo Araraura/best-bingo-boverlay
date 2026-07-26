@@ -94,7 +94,9 @@ export interface GameState {
   centerIsFree: boolean; // free means it starts marked, otherwise it has to be called
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
+  roundSize: BoardSize; // what sheets actually use, a size change waits for the next round
   roundOver: boolean; // a bingo ends the round, no marking or claims until the next one
+  roundWin: { player: string; lines: number; points: number } | null;
   roundWinners: string[];
   scores: Record<string, number>;
 }
@@ -108,21 +110,32 @@ export function defaultGameState(): GameState {
     centerIsFree: true,
     calledSpaces: [],
     roundId: 1,
+    roundSize: 5,
     roundOver: false,
+    roundWin: null,
     roundWinners: [],
     scores: {},
   };
 }
 
-// bigger boards are harder, so a line is worth more
 export const POINTS_PER_LINE: Record<BoardSize, number> = { 5: 1, 6: 2, 7: 3 };
+
+// the win announcement everyone sees, empty while a round is underway
+export function roundOverText(state: GameState): string {
+  if (!state.roundOver) return '';
+  const win = state.roundWin;
+  if (!win) return 'ROUND OVER! Waiting for the next round.';
+  const lineText = `${win.lines} line${win.lines > 1 ? 's' : ''}`;
+  const pointText = `${win.points} point${win.points > 1 ? 's' : ''}`;
+  return `ROUND OVER! ${win.player} got a BINGO - ${lineText}, +${pointText}. Waiting for the next round.`;
+}
 
 // what scribes can call. a center space that isn't free has to be callable too,
 // but 6x6 boards have no center at all
 export function callableSpaces(state: GameState): string[] {
   const spaces = [...new Set(state.spaceList)];
   const center = state.centerSpace.trim();
-  const hasCenter = state.size % 2 === 1;
+  const hasCenter = state.roundSize % 2 === 1;
   if (hasCenter && !state.centerIsFree && center && !spaces.includes(center)) spaces.push(center);
   return spaces;
 }
@@ -161,19 +174,37 @@ export function reduce(state: GameState, action: Action): GameState {
       return { ...state, calledSpaces: [...called] };
     }
     case 'startNewRound':
-      return { ...state, roundId: state.roundId + 1, calledSpaces: [], roundWinners: [], roundOver: false };
-    case 'awardBingo': {
-      if (state.roundWinners.includes(action.player)) return state;
-      const updatedScore = (state.scores[action.player] ?? 0) + action.lines * POINTS_PER_LINE[state.size];
       return {
         ...state,
-        scores: { ...state.scores, [action.player]: updatedScore },
+        roundId: state.roundId + 1,
+        roundSize: state.size,
+        calledSpaces: [],
+        roundWinners: [],
+        roundOver: false,
+        roundWin: null,
+      };
+    case 'awardBingo': {
+      if (state.roundWinners.includes(action.player)) return state;
+      const points = action.lines * POINTS_PER_LINE[state.roundSize];
+      return {
+        ...state,
+        scores: { ...state.scores, [action.player]: (state.scores[action.player] ?? 0) + points },
         roundWinners: [...state.roundWinners, action.player],
         roundOver: true,
+        roundWin: { player: action.player, lines: action.lines, points },
       };
     }
     case 'resetScores':
-      return { ...state, scores: {}, roundId: 1, calledSpaces: [], roundWinners: [], roundOver: false };
+      return {
+        ...state,
+        scores: {},
+        roundId: 1,
+        roundSize: state.size,
+        calledSpaces: [],
+        roundWinners: [],
+        roundOver: false,
+        roundWin: null,
+      };
     case 'callAll': {
       const uniqueSpaces = callableSpaces(state);
       const allCalled = uniqueSpaces.every((space) => state.calledSpaces.includes(space));

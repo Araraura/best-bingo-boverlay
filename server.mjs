@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
-import { defaultGameState, reduce, verifyBingo, POINTS_PER_LINE } from './dist/game.js';
+import { defaultGameState, reduce, verifyBingo } from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
 
 const root = process.cwd();
@@ -239,7 +239,9 @@ const STATE_FILE = join(root, 'game-state.json');
 
 function loadGame() {
   try {
-    return { ...defaultGameState(), ...JSON.parse(readFileSync(STATE_FILE, 'utf8')) };
+    const saved = JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+    // states from before roundSize existed keep their board size
+    return { ...defaultGameState(), roundSize: saved.size ?? 5, ...saved };
   } catch {
     return defaultGameState();
   }
@@ -309,13 +311,6 @@ const wss = new WebSocketServer({ server: httpServer });
 function broadcastState() {
   saveGame();
   const payload = JSON.stringify({ type: 'state', game });
-  for (const client of wss.clients) {
-    if (client.readyState === client.OPEN) client.send(payload);
-  }
-}
-
-function broadcastNotice(level, message) {
-  const payload = JSON.stringify({ type: 'notice', level, message });
   for (const client of wss.clients) {
     if (client.readyState === client.OPEN) client.send(payload);
   }
@@ -424,7 +419,7 @@ wss.on('connection', (socket, request) => {
         socket.sheetKey = sheetKey;
         if (!sheets.has(sheetKey)) {
           try {
-            sheets.set(sheetKey, generateSheet(game.size, game.spaceList, game.centerSpace, game.centerIsFree));
+            sheets.set(sheetKey, generateSheet(game.roundSize, game.spaceList, game.centerSpace, game.centerIsFree));
           } catch (error) {
             sendNotice(socket, 'error', error instanceof Error ? error.message : String(error));
             return;
@@ -477,12 +472,8 @@ wss.on('connection', (socket, request) => {
           return;
         }
         // a win freezes the round until a scribe starts the next one
-        const points = wins.length * POINTS_PER_LINE[game.size];
         game = reduce(game, { type: 'awardBingo', player: name, lines: wins.length });
         broadcastState();
-        const lineText = `${wins.length} line${wins.length > 1 ? 's' : ''}`;
-        const pointText = `${points} point${points > 1 ? 's' : ''}`;
-        broadcastNotice('success', `${name} got a BINGO! ${lineText}, +${pointText}!`);
         break;
       }
     }

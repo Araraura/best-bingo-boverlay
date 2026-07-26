@@ -2,7 +2,7 @@
 // changes go through the shared state so players update live.
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
-import { type GameState, callableSpaces } from './game.js';
+import { type GameState, callableSpaces, roundOverText } from './game.js';
 import {
   loadState,
   subscribe,
@@ -57,9 +57,11 @@ function renderControls(): void {
 function renderRoundInfo(): void {
   const title = state.name || 'Bingo';
   const uniqueCount = callableSpaces(state).length;
+  const roundOver = roundOverText(state);
   roundInfoEl.textContent =
-    `${title} - Round ${state.roundId} (${state.size}x${state.size}) - ` +
-    `${state.calledSpaces.length}/${uniqueCount} called`;
+    `${title} - Round ${state.roundId} (${state.roundSize}x${state.roundSize}) - ` +
+    `${state.calledSpaces.length}/${uniqueCount} called` +
+    (roundOver ? ` - ${roundOver}` : '');
 }
 
 function renderCallList(): void {
