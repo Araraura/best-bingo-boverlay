@@ -87,6 +87,12 @@ button:hover {
   border-color: var(--green);
 }
 
+#save-config.unsaved {
+  background: var(--green);
+  color: #06180a;
+  border-color: var(--green);
+}
+
 #reset-scores {
   color: #fff;
   background: #c0392b;

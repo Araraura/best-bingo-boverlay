@@ -95,20 +95,37 @@ function renderScoreboard(): void {
   }
 }
 
-saveBtn.addEventListener('click', () => {
-  const size = Number(sizeSelect.value) as BoardSize;
-  const spaceList = spacesInput.value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  setConfig({
+function formConfig(): Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'> {
+  return {
     name: nameInput.value.trim(),
-    size,
-    spaceList,
+    size: Number(sizeSelect.value) as BoardSize,
+    spaceList: spacesInput.value
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0),
     centerSpace: centerSpaceInput.value.trim(),
     centerIsFree: centerIsFreeInput.checked,
-  });
-});
+  };
+}
+
+// highlights save while the form differs from the settings the server has
+function renderSaveButton(): void {
+  const form = formConfig();
+  const unsaved =
+    form.name !== state.name ||
+    form.size !== state.size ||
+    form.spaceList.join('\n') !== state.spaceList.join('\n') ||
+    form.centerSpace !== state.centerSpace ||
+    form.centerIsFree !== state.centerIsFree;
+  saveBtn.classList.toggle('unsaved', unsaved);
+}
+
+for (const field of [nameInput, sizeSelect, spacesInput, centerSpaceInput, centerIsFreeInput]) {
+  field.addEventListener('input', renderSaveButton);
+  field.addEventListener('change', renderSaveButton);
+}
+
+saveBtn.addEventListener('click', () => setConfig(formConfig()));
 
 onHello(({ scribe }) => {
   scribeUiEl.hidden = !scribe;
@@ -141,12 +158,14 @@ subscribe((next) => {
     next.spaceList.join('\n') !== state.spaceList.join('\n');
   state = next;
   if (configChanged) renderControls();
+  renderSaveButton();
   renderRoundInfo();
   renderCallList();
   renderScoreboard();
 });
 
 renderControls();
+renderSaveButton();
 renderRoundInfo();
 renderCallList();
 renderScoreboard();
