@@ -1,7 +1,7 @@
 // talks to the server over a websocket.
 // sends actions and passes incoming messages to listeners.
 
-import { type GameState, type Action, defaultGameState } from './game.js';
+import { type GameState, type Action, type BoardConfig, defaultGameState } from './game.js';
 import { type Sheet } from './bingo.js';
 
 export interface Notice {
@@ -38,7 +38,8 @@ type Outgoing =
   | { type: 'join'; name?: string; token?: string }
   | { type: 'mark'; cellIndex: number }
   | { type: 'claimBingo' }
-  | { type: 'addScribe'; name: string };
+  | { type: 'addScribe'; name: string }
+  | { type: 'useFreeSpace'; space: string };
 
 const pending: Outgoing[] = [];
 let socket: WebSocket;
@@ -108,9 +109,7 @@ export function onHello(listener: HelloListener): () => void {
 }
 
 // scribe actions
-export function setConfig(
-  changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'>>,
-): void {
+export function setConfig(changes: Partial<BoardConfig>): void {
   send({ type: 'setConfig', changes });
 }
 export function toggleCalled(label: string): void {
@@ -138,4 +137,7 @@ export function mark(cellIndex: number): void {
 }
 export function claimBingo(): void {
   send({ type: 'claimBingo' });
+}
+export function useFreeSpace(space: string): void {
+  send({ type: 'useFreeSpace', space });
 }

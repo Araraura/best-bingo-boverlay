@@ -2,7 +2,7 @@
 // changes go through the shared state so players update live.
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
-import { type GameState, callableSpaces, roundOverText } from './game.js';
+import { type GameState, type BoardConfig, callableSpaces, roundOverText } from './game.js';
 import {
   loadState,
   subscribe,
@@ -22,6 +22,8 @@ const sizeSelect = document.getElementById('size') as HTMLSelectElement;
 const spacesInput = document.getElementById('spaces') as HTMLTextAreaElement;
 const centerSpaceInput = document.getElementById('center-space') as HTMLInputElement;
 const centerIsFreeInput = document.getElementById('center-is-free') as HTMLInputElement;
+const freeSpaceCostInput = document.getElementById('free-space-cost') as HTMLInputElement;
+const freeSpaceLimitInput = document.getElementById('free-space-limit') as HTMLInputElement;
 const saveBtn = document.getElementById('save-config') as HTMLButtonElement;
 const newRoundBtn = document.getElementById('new-round') as HTMLButtonElement;
 const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElement;
@@ -52,6 +54,8 @@ function renderControls(): void {
   spacesInput.value = state.spaceList.join('\n');
   centerSpaceInput.value = state.centerSpace;
   centerIsFreeInput.checked = state.centerIsFree;
+  freeSpaceCostInput.value = String(state.freeSpaceCost);
+  freeSpaceLimitInput.value = String(state.freeSpaceLimit);
 }
 
 function renderRoundInfo(): void {
@@ -68,6 +72,7 @@ function renderCallList(): void {
   const called = new Set(state.calledSpaces);
   callListEl.replaceChildren();
 
+  const freeSpaces = new Set(state.freeSpaces);
   const uniqueSpaces = callableSpaces(state).sort((a, b) => a.localeCompare(b));
   for (const space of uniqueSpaces) {
     const button = document.createElement('button');
@@ -75,7 +80,12 @@ function renderCallList(): void {
     button.className = 'call-item';
     if (called.has(space)) button.classList.add('called');
     appendLabelWithBreaks(button, space);
-    button.addEventListener('click', () => toggleCalled(space));
+    if (freeSpaces.has(space)) {
+      button.classList.add('free-called');
+      button.disabled = true;
+    } else {
+      button.addEventListener('click', () => toggleCalled(space));
+    }
     callListEl.appendChild(button);
   }
 }
@@ -95,7 +105,7 @@ function renderScoreboard(): void {
   }
 }
 
-function formConfig(): Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'> {
+function formConfig(): BoardConfig {
   return {
     name: nameInput.value.trim(),
     size: Number(sizeSelect.value) as BoardSize,
@@ -105,6 +115,8 @@ function formConfig(): Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSp
       .filter((line) => line.length > 0),
     centerSpace: centerSpaceInput.value.trim(),
     centerIsFree: centerIsFreeInput.checked,
+    freeSpaceCost: Math.max(0, Number(freeSpaceCostInput.value) || 0),
+    freeSpaceLimit: Math.max(0, Number(freeSpaceLimitInput.value) || 0),
   };
 }
 
@@ -116,11 +128,22 @@ function renderSaveButton(): void {
     form.size !== state.size ||
     form.spaceList.join('\n') !== state.spaceList.join('\n') ||
     form.centerSpace !== state.centerSpace ||
-    form.centerIsFree !== state.centerIsFree;
+    form.centerIsFree !== state.centerIsFree ||
+    form.freeSpaceCost !== state.freeSpaceCost ||
+    form.freeSpaceLimit !== state.freeSpaceLimit;
   saveBtn.classList.toggle('unsaved', unsaved);
 }
 
-for (const field of [nameInput, sizeSelect, spacesInput, centerSpaceInput, centerIsFreeInput]) {
+const configFields = [
+  nameInput,
+  sizeSelect,
+  spacesInput,
+  centerSpaceInput,
+  centerIsFreeInput,
+  freeSpaceCostInput,
+  freeSpaceLimitInput,
+];
+for (const field of configFields) {
   field.addEventListener('input', renderSaveButton);
   field.addEventListener('change', renderSaveButton);
 }

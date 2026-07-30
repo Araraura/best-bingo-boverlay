@@ -1,9 +1,19 @@
 // Player view. joins with a name, renders the server's sheet, and forwards clicks and claims.
 // the server owns everything, this just shows what comes back.
 
-import { type GameState, verifyBingo, roundOverText } from './game.js';
+import { type GameState, verifyBingo, roundOverText, uncalledSpaces, freeSpacesLeft } from './game.js';
 import { type Sheet } from './bingo.js';
-import { loadState, subscribe, onSheet, onNotice, onHello, join, mark, claimBingo } from './state.js';
+import {
+  loadState,
+  subscribe,
+  onSheet,
+  onNotice,
+  onHello,
+  join,
+  mark,
+  claimBingo,
+  useFreeSpace,
+} from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('player-name') as HTMLInputElement;
@@ -17,6 +27,14 @@ const callBingoBtn = document.getElementById('call-bingo') as HTMLButtonElement;
 const boardEl = document.getElementById('board') as HTMLDivElement;
 const calledListEl = document.getElementById('called-list') as HTMLOListElement;
 const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
+
+const freeSpaceBtn = document.getElementById('free-space') as HTMLButtonElement;
+const freeSpaceForm = document.getElementById('free-space-form') as HTMLDivElement;
+const freeSpacePick = document.getElementById('free-space-pick') as HTMLSelectElement;
+const freeSpaceSubmit = document.getElementById('free-space-submit') as HTMLButtonElement;
+const freeSpaceCancel = document.getElementById('free-space-cancel') as HTMLButtonElement;
+const freeSpaceMessage = document.getElementById('free-space-message') as HTMLParagraphElement;
+const freeSpaceLeftEl = document.getElementById('free-space-left') as HTMLParagraphElement;
 
 const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
@@ -111,6 +129,30 @@ function renderCalledList(): void {
   }
 }
 
+function renderFreeSpace(): void {
+  freeSpaceBtn.textContent = `Free Space - ${state.freeSpaceCost} points`;
+  const left = freeSpacesLeft(state);
+  freeSpaceLeftEl.textContent = `${left} of ${state.freeSpaceLimit} left this round`;
+  const canUse = !state.roundOver && left > 0;
+  freeSpaceBtn.disabled = !canUse;
+  if (!canUse) freeSpaceForm.hidden = true;
+
+  const wanted = freeSpacePick.value;
+  freeSpacePick.replaceChildren(
+    ...uncalledSpaces(state).map((space) => {
+      const option = document.createElement('option');
+      option.value = space;
+      option.textContent = space;
+      return option;
+    }),
+  );
+  freeSpacePick.value = wanted;
+  if (freeSpacePick.selectedIndex < 0) {
+    freeSpacePick.selectedIndex = 0;
+    if (wanted && !freeSpaceForm.hidden) freeSpaceMessage.textContent = `"${wanted}" was just called, pick another.`;
+  }
+}
+
 function renderScoreboard(): void {
   const ranked = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
   scoreboardEl.replaceChildren();
@@ -166,6 +208,7 @@ subscribe((next) => {
   renderGameName();
   renderCalledList();
   renderScoreboard();
+  renderFreeSpace();
   render();
   if (!state.roundOver) bannerEl.hidden = true;
   if (roundChanged && hasJoined()) {
@@ -199,6 +242,29 @@ onHello(({ twitch }) => {
   nameInput.value = savedName;
   joinedName = savedName;
   sendJoin();
+});
+
+freeSpaceBtn.addEventListener('click', () => {
+  if (!hasJoined()) {
+    freeSpaceMessage.textContent = 'Join the game first.';
+    return;
+  }
+  freeSpaceForm.hidden = false;
+  freeSpaceMessage.textContent = '';
+  freeSpacePick.focus();
+});
+
+freeSpaceCancel.addEventListener('click', () => {
+  freeSpaceForm.hidden = true;
+  freeSpaceMessage.textContent = '';
+});
+
+freeSpaceSubmit.addEventListener('click', () => {
+  const space = freeSpacePick.value;
+  if (!space) return;
+  useFreeSpace(space);
+  freeSpaceForm.hidden = true;
+  freeSpaceMessage.textContent = `"${space}" called for everyone.`;
 });
 
 callBingoBtn.addEventListener('click', () => {

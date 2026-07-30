@@ -22,6 +22,12 @@
       <label><input id="center-is-free" type="checkbox" /> Free space (marked from the start)</label>
     </section>
 
+    <section class="controls">
+      <label>Free space cost <input id="free-space-cost" type="number" min="0" /></label>
+      <label>Free spaces per round <input id="free-space-limit" type="number" min="0" /></label>
+    </section>
+    <p>The cost is only shown to players. What they actually pay is set on the Twitch reward.</p>
+
     <details>
       <summary>Edit spaces (one per line)</summary>
       <textarea id="spaces" rows="10" spellcheck="false"></textarea>

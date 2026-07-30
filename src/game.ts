@@ -92,6 +92,8 @@ export interface GameState {
   spaceList: string[]; // shared list, abilities can change it between rounds
   centerSpace: string;
   centerIsFree: boolean; // free means it starts marked, otherwise it has to be called
+  freeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
+  freeSpaceLimit: number; // how many free spaces a round allows, prevents point spamming
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
   roundSize: BoardSize; // what sheets actually use, a size change waits for the next round
@@ -99,6 +101,7 @@ export interface GameState {
   roundWin: { player: string; lines: number; points: number } | null;
   roundWinners: string[];
   scores: Record<string, number>;
+  freeSpaces: string[]; // called by the ability, scribes can't take these back
 }
 
 export function defaultGameState(): GameState {
@@ -108,6 +111,8 @@ export function defaultGameState(): GameState {
     spaceList: [...DEFAULT_SPACES],
     centerSpace: FREE_LABEL,
     centerIsFree: true,
+    freeSpaceCost: 50,
+    freeSpaceLimit: 3,
     calledSpaces: [],
     roundId: 1,
     roundSize: 5,
@@ -115,7 +120,18 @@ export function defaultGameState(): GameState {
     roundWin: null,
     roundWinners: [],
     scores: {},
+    freeSpaces: [],
   };
+}
+
+export function freeSpacesLeft(state: GameState): number {
+  return Math.max(0, state.freeSpaceLimit - state.freeSpaces.length);
+}
+
+// the spaces a player can pick for a free space
+export function uncalledSpaces(state: GameState): string[] {
+  const called = new Set(state.calledSpaces);
+  return [...new Set(state.spaceList)].filter((space) => !called.has(space)).sort((a, b) => a.localeCompare(b));
 }
 
 export const POINTS_PER_LINE: Record<BoardSize, number> = { 5: 1, 6: 2, 7: 3 };
@@ -151,23 +167,28 @@ export function verifyBingo(sheet: Sheet, calledSpaces: string[]): Line[] {
   );
 }
 
+// what scribes can change from the admin page
+export type BoardConfig = Pick<
+  GameState,
+  'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree' | 'freeSpaceCost' | 'freeSpaceLimit'
+>;
+
 // the only way to change state. the server applies these with reduce.
 export type Action =
-  | {
-      type: 'setConfig';
-      changes: Partial<Pick<GameState, 'name' | 'size' | 'spaceList' | 'centerSpace' | 'centerIsFree'>>;
-    }
+  | { type: 'setConfig'; changes: Partial<BoardConfig> }
   | { type: 'toggleCalled'; label: string }
   | { type: 'startNewRound' }
   | { type: 'awardBingo'; player: string; lines: number }
   | { type: 'resetScores' }
-  | { type: 'callAll' };
+  | { type: 'callAll' }
+  | { type: 'useFreeSpace'; space: string };
 
 export function reduce(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'setConfig':
       return { ...state, ...action.changes };
     case 'toggleCalled': {
+      if (state.freeSpaces.includes(action.label)) return state;
       const called = new Set(state.calledSpaces);
       if (called.has(action.label)) called.delete(action.label);
       else called.add(action.label);
@@ -182,6 +203,7 @@ export function reduce(state: GameState, action: Action): GameState {
         roundWinners: [],
         roundOver: false,
         roundWin: null,
+        freeSpaces: [],
       };
     case 'awardBingo': {
       if (state.roundWinners.includes(action.player)) return state;
@@ -204,12 +226,21 @@ export function reduce(state: GameState, action: Action): GameState {
         roundWinners: [],
         roundOver: false,
         roundWin: null,
+        freeSpaces: [],
       };
     case 'callAll': {
       const uniqueSpaces = callableSpaces(state);
       const allCalled = uniqueSpaces.every((space) => state.calledSpaces.includes(space));
-      return { ...state, calledSpaces: allCalled ? [] : uniqueSpaces };
+      if (allCalled) return { ...state, calledSpaces: [], freeSpaces: [] };
+      return { ...state, calledSpaces: uniqueSpaces };
     }
+    case 'useFreeSpace':
+      if (!uncalledSpaces(state).includes(action.space) || freeSpacesLeft(state) === 0) return state;
+      return {
+        ...state,
+        calledSpaces: [...state.calledSpaces, action.space],
+        freeSpaces: [...state.freeSpaces, action.space],
+      };
     default:
       return state;
   }

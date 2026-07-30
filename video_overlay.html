@@ -35,8 +35,20 @@
       </section>
     </main>
 
-    <aside class="right-panel">
-      <!-- abilities go here later -->
+    <aside class="right-panel panel">
+      <h2>Abilities</h2>
+      <button id="free-space" type="button"></button>
+      <p id="free-space-left"></p>
+
+      <div id="free-space-form" hidden>
+        <p>Pick a space to be marked by everyone</p>
+        <select id="free-space-pick"></select>
+        <div class="controls">
+          <button id="free-space-submit" type="button">Submit</button>
+          <button id="free-space-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+      <p id="free-space-message"></p>
     </aside>
 
     <div class="display-settings panel">

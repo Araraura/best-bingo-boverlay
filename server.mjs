@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
-import { defaultGameState, reduce, verifyBingo } from './dist/game.js';
+import { defaultGameState, reduce, verifyBingo, uncalledSpaces, freeSpacesLeft } from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
 
 const root = process.cwd();
@@ -333,7 +333,14 @@ wss.on('connection', (socket, request) => {
       return;
     }
 
-    const scribeActions = ['setConfig', 'toggleCalled', 'resetScores', 'callAll', 'startNewRound', 'addScribe'];
+    const scribeActions = [
+      'setConfig',
+      'toggleCalled',
+      'resetScores',
+      'callAll',
+      'startNewRound',
+      'addScribe',
+    ];
     if (scribeActions.includes(msg.type) && !socket.scribeLogin) {
       sendNotice(socket, 'error', 'Scribes only.');
       return;
@@ -395,6 +402,30 @@ wss.on('connection', (socket, request) => {
       }
 
       // player actions
+      case 'useFreeSpace': {
+        const name = socket.playerName;
+        if (!name) {
+          sendNotice(socket, 'error', 'Join the game first.');
+          return;
+        }
+        if (game.roundOver) {
+          sendNotice(socket, 'info', 'The round is over, wait for the next one to use a free space.');
+          return;
+        }
+        if (freeSpacesLeft(game) === 0) {
+          sendNotice(socket, 'info', `All ${game.freeSpaceLimit} free spaces for this round have been used.`);
+          return;
+        }
+        const space = String(msg.space ?? '');
+        if (!uncalledSpaces(game).includes(space)) {
+          sendNotice(socket, 'error', `"${space}" can't be called right now.`);
+          return;
+        }
+        game = reduce(game, { type: 'useFreeSpace', space });
+        broadcastState();
+        break;
+      }
+
       case 'join': {
         let name;
         let sheetKey;

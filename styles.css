@@ -87,6 +87,11 @@ button:hover {
   border-color: var(--green);
 }
 
+#free-space:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 #save-config.unsaved {
   background: var(--green);
   color: #06180a;
@@ -224,6 +229,12 @@ input[type='range'] {
 .call-item.called {
   background: var(--green);
   color: #06180a;
+}
+
+.call-item.free-called {
+  background: #b58900;
+  color: #1a1200;
+  cursor: default;
 }
 
 @media (max-width: 640px) {
