@@ -46,6 +46,7 @@ let sheet: Sheet | null = null;
 let joinedName = '';
 let twitchToken = '';
 let lastRoundId = -1;
+let onTwitch = false;
 let cooldownTimer: number | undefined;
 
 function hasJoined(): boolean {
@@ -236,6 +237,7 @@ joinBtn.addEventListener('click', () => {
 });
 
 onHello(({ twitch }) => {
+  onTwitch = twitch;
   if (twitch || joinedName || twitchToken) return;
   const savedName = localStorage.getItem('boverlay.name');
   if (!savedName) return;
@@ -264,7 +266,7 @@ freeSpaceSubmit.addEventListener('click', () => {
   if (!space) return;
   useFreeSpace(space);
   freeSpaceForm.hidden = true;
-  freeSpaceMessage.textContent = `"${space}" called for everyone.`;
+  freeSpaceMessage.textContent = onTwitch ? '' : `"${space}" called for everyone.`;
 });
 
 callBingoBtn.addEventListener('click', () => {

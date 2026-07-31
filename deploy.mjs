@@ -5,6 +5,7 @@ const DIR = '/opt/boverlay';
 
 const serverFiles = [
   'server.mjs',
+  'channel-points.mjs',
   'admin.html',
   'video_overlay.html',
   'config.html',

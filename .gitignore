@@ -4,6 +4,7 @@ dist/
 game-state.json
 twitch-config.*
 scribes.json
+broadcaster.json
 certs/
 extension-package/
 extension.zip

@@ -12,6 +12,7 @@ import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
 import { defaultGameState, reduce, verifyBingo, uncalledSpaces, freeSpacesLeft } from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
+import * as channelPoints from './channel-points.mjs';
 
 const root = process.cwd();
 const port = Number(process.env.PORT) || 8080;
@@ -140,6 +141,46 @@ async function handleAuth(urlPath, req, res) {
       Location: `https://id.twitch.tv/oauth2/authorize?${params}`,
     });
     res.end();
+    return;
+  }
+
+  // the broadcaster links their channel points, scribes only so randoms can't claim it
+  if (urlPath === '/auth/broadcaster') {
+    if (!scribeFromCookies(req.headers.cookie)) {
+      res.writeHead(403);
+      res.end('Scribes only. Log in at /admin.html first.');
+      return;
+    }
+    const state = randomBytes(16).toString('hex');
+    res.writeHead(302, {
+      'Set-Cookie': `oauth_state=${state}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
+      Location: channelPoints.authUrl(`${baseUrl}/auth/broadcaster/callback`, state),
+    });
+    res.end();
+    return;
+  }
+
+  if (urlPath === '/auth/broadcaster/callback') {
+    const query = new URL(req.url, 'https://localhost').searchParams;
+    const cookies = parseCookies(req.headers.cookie);
+    if (!query.get('code') || !query.get('state') || query.get('state') !== cookies.oauth_state) {
+      res.writeHead(403);
+      res.end('Linking failed. Try again from /auth/broadcaster');
+      return;
+    }
+    try {
+      const login = await channelPoints.completeAuth(
+        query.get('code'),
+        `${baseUrl}/auth/broadcaster/callback`,
+        game.freeSpaceCost,
+        `${baseUrl}/twitch/eventsub`,
+      );
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end(`Channel points linked for ${login}. The "Free Space" reward is ready.`);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(`Linking failed: ${error.message}`);
+    }
     return;
   }
 
@@ -275,9 +316,53 @@ function exportScores() {
   }
 }
 
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+const handledMessages = new Set();
+
+async function handleEventSub(req, res) {
+  const rawBody = await readBody(req);
+  if (!channelPoints.verifyMessage(req.headers, rawBody)) {
+    res.writeHead(403);
+    res.end('Bad signature');
+    return;
+  }
+
+  const messageType = req.headers['twitch-eventsub-message-type'];
+  const payload = JSON.parse(rawBody);
+
+  if (messageType === 'webhook_callback_verification') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(payload.challenge);
+    return;
+  }
+
+  res.writeHead(204);
+  res.end();
+
+  if (messageType !== 'notification') {
+    if (messageType === 'revocation') console.log('eventsub revoked:', payload.subscription.status);
+    return;
+  }
+
+  const messageId = req.headers['twitch-eventsub-message-id'];
+  if (handledMessages.has(messageId)) return;
+  handledMessages.add(messageId);
+
+  redeemFreeSpace(payload.event).catch((error) => console.log('redemption failed:', error.message));
+}
+
 async function serveFile(req, res) {
   try {
     let urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    if (urlPath === '/twitch/eventsub' && req.method === 'POST') return handleEventSub(req, res);
     if (urlPath.startsWith('/auth/')) return handleAuth(urlPath, req, res);
     if (urlPath === '/') urlPath = '/video_overlay.html';
     const filePath = normalize(join(root, urlPath));
@@ -314,6 +399,51 @@ function broadcastState() {
   for (const client of wss.clients) {
     if (client.readyState === client.OPEN) client.send(payload);
   }
+}
+
+// a viewer picks their space in the overlay, then pays for it in twitch's channel points menu.
+// holds the pick until the redemption turns up.
+const stagedFreeSpaces = new Map();
+const STAGE_TTL_MS = 10 * 60 * 1000;
+
+function socketForViewer(userId) {
+  for (const client of wss.clients) {
+    if (client.sheetKey === userId && client.readyState === client.OPEN) return client;
+  }
+  return null;
+}
+
+async function redeemFreeSpace(event) {
+  const socket = socketForViewer(event.user_id);
+  const staged = stagedFreeSpaces.get(event.user_id);
+  stagedFreeSpaces.delete(event.user_id);
+
+  const refuse = async (reason) => {
+    if (socket) sendNotice(socket, 'error', `${reason}\nYour points have been refunded.`);
+    await channelPoints.resolveRedemption(event.id, 'CANCELED');
+  };
+
+  if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
+    await refuse('Pick a space in the bingo overlay before redeeming.');
+    return;
+  }
+  if (game.roundOver) {
+    await refuse('The round ended before the request was fulfilled.');
+    return;
+  }
+  if (freeSpacesLeft(game) === 0) {
+    await refuse(`All ${game.freeSpaceLimit} free spaces for this round have been used.`);
+    return;
+  }
+  if (!uncalledSpaces(game).includes(staged.space)) {
+    await refuse(`"${staged.space}" was already called.`);
+    return;
+  }
+
+  game = reduce(game, { type: 'useFreeSpace', space: staged.space });
+  broadcastState();
+  if (socket) sendNotice(socket, 'success', `"${staged.space}" is now called for everyone.`);
+  await channelPoints.resolveRedemption(event.id, 'FULFILLED');
 }
 
 const sendSheet = (socket, sheet) => socket.send(JSON.stringify({ type: 'sheet', sheet }));
@@ -421,6 +551,11 @@ wss.on('connection', (socket, request) => {
           sendNotice(socket, 'error', `"${space}" can't be called right now.`);
           return;
         }
+        if (channelPoints.isLinked()) {
+          stagedFreeSpaces.set(socket.sheetKey, { space, at: Date.now() });
+          sendNotice(socket, 'info', 'Please redeem "Free Space" now in the Channel Points menu to call your space.');
+          return;
+        }
         game = reduce(game, { type: 'useFreeSpace', space });
         broadcastState();
         break;
@@ -510,6 +645,19 @@ wss.on('connection', (socket, request) => {
     }
   });
 });
+
+if (twitchConfig) {
+  channelPoints.setup(twitchConfig, root);
+  if (channelPoints.isLinked()) {
+    const baseUrl = twitchConfig.publicUrl ?? '';
+    channelPoints
+      .ensureSetUp(game.freeSpaceCost, `${baseUrl}/twitch/eventsub`)
+      .then(() => console.log('channel points ready for', channelPoints.linkedLogin()))
+      .catch((error) => console.log('channel points setup failed:', error.message));
+  } else {
+    console.log('channel points not linked yet. Please visit /auth/broadcaster');
+  }
+}
 
 httpServer.listen(port, () => {
   console.log(`serving on ${scheme}://localhost:${port} (overlay: /video_overlay.html, scribe: /admin.html)`);

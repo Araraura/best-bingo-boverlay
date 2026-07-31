@@ -2,7 +2,17 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'extension-package/', 'server.mjs', 'backend-config.js', 'package-extension.mjs', 'deploy.mjs'] },
+  {
+    ignores: [
+      'dist/',
+      'extension-package/',
+      'server.mjs',
+      'channel-points.mjs',
+      'backend-config.js',
+      'package-extension.mjs',
+      'deploy.mjs',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
