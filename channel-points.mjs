@@ -2,14 +2,31 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 
-const REWARD_TITLE = 'Free Space';
+const REWARDS = [
+  {
+    key: 'freeSpace',
+    title: 'Free Space',
+    prompt: 'Pick your space in the bingo overlay first, then redeem this to call it.',
+  },
+  {
+    key: 'addSpace',
+    title: 'Add Space',
+    prompt: 'Type your new space in the bingo overlay first, then redeem this to send it to the scribes.',
+  },
+  {
+    key: 'removeSpace',
+    title: 'Remove Space',
+    prompt: 'Pick the space you want gone in the bingo overlay first, then redeem this to drop it next round.',
+  },
+];
+
 const REDEMPTION_EVENT = 'channel.channel_points_custom_reward_redemption.add';
 const SCOPES = 'channel:manage:redemptions';
 const MESSAGE_AGE_LIMIT_MS = 3 * 60 * 1000;
 
 let config = null;
 let file = '';
-let broadcaster = null; // { userId, login, refreshToken, rewardId, secret }
+let broadcaster = null; // { userId, login, refreshToken, rewards: { key: rewardId }, secret }
 
 export function setup(twitchConfig, root) {
   config = twitchConfig;
@@ -29,7 +46,16 @@ const clientId = () => config.loginClientId ?? config.clientId;
 const clientSecret = () => config.loginClientSecret ?? config.apiClientSecret;
 
 export function isLinked() {
-  return Boolean(broadcaster?.rewardId);
+  return Boolean(broadcaster?.rewards?.freeSpace);
+}
+
+export function rewardIdFor(ability) {
+  return broadcaster?.rewards?.[ability] ?? '';
+}
+
+export function abilityFor(rewardId) {
+  const rewards = broadcaster?.rewards ?? {};
+  return Object.keys(rewards).find((key) => rewards[key] === rewardId) ?? '';
 }
 
 export function linkedLogin() {
@@ -88,60 +114,72 @@ async function helix(path, { token, method = 'GET', body } = {}) {
 }
 
 // only the app that made a reward can update or refund it
-async function ensureReward(cost) {
+async function ensureRewards(costs) {
   const token = await userToken();
-  const mine = await helix(`channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}&only_manageable_rewards=true`, {
-    token,
-  });
-  const existing = mine.data.find((reward) => reward.title === REWARD_TITLE);
-  if (existing) return existing.id;
+  const mine = await helix(
+    `channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}&only_manageable_rewards=true`,
+    { token },
+  );
 
-  const created = await helix(`channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}`, {
-    token,
-    method: 'POST',
-    body: {
-      title: REWARD_TITLE,
-      cost,
-      prompt: 'Pick your space in the bingo overlay first, then redeem this to call it.',
-      is_user_input_required: false,
-      should_redemptions_skip_request_queue: false,
-    },
-  });
-  return created.data[0].id;
+  const rewards = {};
+  for (const reward of REWARDS) {
+    const existing = mine.data.find((made) => made.title === reward.title);
+    if (existing) {
+      rewards[reward.key] = existing.id;
+      continue;
+    }
+    const created = await helix(`channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}`, {
+      token,
+      method: 'POST',
+      body: {
+        title: reward.title,
+        cost: costs[reward.key],
+        prompt: reward.prompt,
+        is_user_input_required: false, // viewer type or pick in our overlay instead
+        should_redemptions_skip_request_queue: false, // fulfil or refund each one
+      },
+    });
+    rewards[reward.key] = created.data[0].id;
+  }
+  return rewards;
 }
 
-async function ensureSubscription(callbackUrl) {
+async function ensureSubscriptions(callbackUrl) {
   const token = await appToken();
   const subs = await helix('eventsub/subscriptions', { token });
-  const alreadyThere = subs.data.some(
-    (sub) =>
-      sub.type === REDEMPTION_EVENT &&
-      sub.condition.broadcaster_user_id === broadcaster.userId &&
-      sub.transport.callback === callbackUrl &&
-      sub.status !== 'webhook_callback_verification_failed',
-  );
-  if (alreadyThere) return;
 
-  await helix('eventsub/subscriptions', {
-    token,
-    method: 'POST',
-    body: {
-      type: REDEMPTION_EVENT,
-      version: '1',
-      condition: { broadcaster_user_id: broadcaster.userId, reward_id: broadcaster.rewardId },
-      transport: { method: 'webhook', callback: callbackUrl, secret: broadcaster.secret },
-    },
-  });
+  for (const rewardId of Object.values(broadcaster.rewards)) {
+    const alreadyThere = subs.data.some(
+      (sub) =>
+        sub.type === REDEMPTION_EVENT &&
+        sub.condition.broadcaster_user_id === broadcaster.userId &&
+        sub.condition.reward_id === rewardId &&
+        sub.transport.callback === callbackUrl &&
+        sub.status !== 'webhook_callback_verification_failed',
+    );
+    if (alreadyThere) continue;
+
+    await helix('eventsub/subscriptions', {
+      token,
+      method: 'POST',
+      body: {
+        type: REDEMPTION_EVENT,
+        version: '1',
+        condition: { broadcaster_user_id: broadcaster.userId, reward_id: rewardId },
+        transport: { method: 'webhook', callback: callbackUrl, secret: broadcaster.secret },
+      },
+    });
+  }
 }
 
-export async function ensureSetUp(cost, callbackUrl) {
+export async function ensureSetUp(costs, callbackUrl) {
   if (!broadcaster?.refreshToken) return;
-  broadcaster.rewardId = await ensureReward(cost);
+  broadcaster.rewards = await ensureRewards(costs);
   save();
-  await ensureSubscription(callbackUrl);
+  await ensureSubscriptions(callbackUrl);
 }
 
-export async function completeAuth(code, redirectUri, cost, callbackUrl) {
+export async function completeAuth(code, redirectUri, costs, callbackUrl) {
   const tokens = await tokenRequest({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
   if (!tokens.access_token) throw new Error('twitch did not return a token');
 
@@ -151,11 +189,11 @@ export async function completeAuth(code, redirectUri, cost, callbackUrl) {
     userId: user.id,
     login: user.login,
     refreshToken: tokens.refresh_token,
-    rewardId: broadcaster?.rewardId ?? '',
+    rewards: broadcaster?.rewards ?? {},
     secret: broadcaster?.secret ?? randomBytes(24).toString('hex'),
   };
   save();
-  await ensureSetUp(cost, callbackUrl);
+  await ensureSetUp(costs, callbackUrl);
   return user.login;
 }
 
@@ -172,12 +210,12 @@ export function verifyMessage(headers, rawBody) {
   return given.length === mine.length && timingSafeEqual(given, mine);
 }
 
-export async function resolveRedemption(redemptionId, status) {
+export async function resolveRedemption(redemptionId, rewardId, status) {
   const token = await userToken();
   const query = new URLSearchParams({
     id: redemptionId,
     broadcaster_id: broadcaster.userId,
-    reward_id: broadcaster.rewardId,
+    reward_id: rewardId,
   });
   await helix(`channel_points/custom_rewards/redemptions?${query}`, { token, method: 'PATCH', body: { status } });
 }

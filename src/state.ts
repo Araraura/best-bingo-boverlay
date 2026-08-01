@@ -39,7 +39,9 @@ type Outgoing =
   | { type: 'mark'; cellIndex: number }
   | { type: 'claimBingo' }
   | { type: 'addScribe'; name: string }
-  | { type: 'useFreeSpace'; space: string };
+  | { type: 'useFreeSpace'; space: string }
+  | { type: 'submitSpace'; space: string } // the server fills in who sent it
+  | { type: 'removeSpace'; space: string };
 
 const pending: Outgoing[] = [];
 let socket: WebSocket;
@@ -127,6 +129,12 @@ export function callAll(): void {
 export function addScribe(name: string): void {
   send({ type: 'addScribe', name });
 }
+export function approveSpace(space: string): void {
+  send({ type: 'approveSpace', space });
+}
+export function rejectSpace(space: string): void {
+  send({ type: 'rejectSpace', space });
+}
 
 // player actions
 export function join(payload: { name?: string; token?: string }): void {
@@ -140,4 +148,10 @@ export function claimBingo(): void {
 }
 export function useFreeSpace(space: string): void {
   send({ type: 'useFreeSpace', space });
+}
+export function submitSpace(space: string): void {
+  send({ type: 'submitSpace', space });
+}
+export function removeSpace(space: string): void {
+  send({ type: 'removeSpace', space });
 }

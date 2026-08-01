@@ -10,7 +10,17 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { WebSocketServer } from 'ws';
-import { defaultGameState, reduce, verifyBingo, uncalledSpaces, freeSpacesLeft } from './dist/game.js';
+import {
+  defaultGameState,
+  reduce,
+  verifyBingo,
+  uncalledSpaces,
+  freeSpacesLeft,
+  addSpacesLeft,
+  removeSpacesLeft,
+  checkNewSpace,
+  checkRemoveSpace,
+} from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
 import * as channelPoints from './channel-points.mjs';
 
@@ -172,11 +182,11 @@ async function handleAuth(urlPath, req, res) {
       const login = await channelPoints.completeAuth(
         query.get('code'),
         `${baseUrl}/auth/broadcaster/callback`,
-        game.freeSpaceCost,
+        abilityCosts(),
         `${baseUrl}/twitch/eventsub`,
       );
       res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end(`Channel points linked for ${login}. The "Free Space" reward is ready.`);
+      res.end(`Channel points linked for ${login}. Rewards are ready.`);
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end(`Linking failed: ${error.message}`);
@@ -356,7 +366,7 @@ async function handleEventSub(req, res) {
   if (handledMessages.has(messageId)) return;
   handledMessages.add(messageId);
 
-  redeemFreeSpace(payload.event).catch((error) => console.log('redemption failed:', error.message));
+  redeemAbility(payload.event).catch((error) => console.log('redemption failed:', error.message));
 }
 
 async function serveFile(req, res) {
@@ -404,13 +414,89 @@ function broadcastState() {
 // a viewer picks their space in the overlay, then pays for it in twitch's channel points menu.
 // holds the pick until the redemption turns up.
 const stagedFreeSpaces = new Map();
+const stagedNewSpaces = new Map();
+const stagedRemovals = new Map();
 const STAGE_TTL_MS = 10 * 60 * 1000;
+
+const abilityCosts = () => ({
+  freeSpace: game.freeSpaceCost,
+  addSpace: game.addSpaceCost,
+  removeSpace: game.removeSpaceCost,
+});
 
 function socketForViewer(userId) {
   for (const client of wss.clients) {
     if (client.sheetKey === userId && client.readyState === client.OPEN) return client;
   }
   return null;
+}
+
+async function redeemAbility(event) {
+  const ability = channelPoints.abilityFor(event.reward.id);
+  if (ability === 'freeSpace') return redeemFreeSpace(event);
+  if (ability === 'addSpace') return redeemNewSpace(event);
+  if (ability === 'removeSpace') return redeemRemoval(event);
+  await channelPoints.resolveRedemption(event.id, event.reward.id, 'CANCELED');
+}
+
+async function redeemRemoval(event) {
+  const socket = socketForViewer(event.user_id);
+  const staged = stagedRemovals.get(event.user_id);
+  stagedRemovals.delete(event.user_id);
+
+  const refuse = async (reason) => {
+    if (socket) sendNotice(socket, 'error', `${reason}\nYour points have been refunded.`);
+    await channelPoints.resolveRedemption(event.id, event.reward.id, 'CANCELED');
+  };
+
+  if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
+    await refuse('Pick the space you want gone in the bingo overlay before redeeming.');
+    return;
+  }
+  if (removeSpacesLeft(game) === 0) {
+    await refuse(`All ${game.removeSpaceLimit} removals for this round are gone.`);
+    return;
+  }
+  const problem = checkRemoveSpace(game, staged.space);
+  if (problem) {
+    await refuse(problem);
+    return;
+  }
+
+  game = reduce(game, { type: 'removeSpace', space: staged.space });
+  broadcastState();
+  if (socket) sendNotice(socket, 'success', `"${staged.space}" leaves the list next round.`);
+  await channelPoints.resolveRedemption(event.id, event.reward.id, 'FULFILLED');
+}
+
+// the submission waits for a scribe, so the points stay held until they decide
+async function redeemNewSpace(event) {
+  const socket = socketForViewer(event.user_id);
+  const staged = stagedNewSpaces.get(event.user_id);
+  stagedNewSpaces.delete(event.user_id);
+
+  const refuse = async (reason) => {
+    if (socket) sendNotice(socket, 'error', `${reason}\nYour points have been refunded.`);
+    await channelPoints.resolveRedemption(event.id, event.reward.id, 'CANCELED');
+  };
+
+  if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
+    await refuse('Type your new space in the bingo overlay before redeeming.');
+    return;
+  }
+  if (addSpacesLeft(game) === 0) {
+    await refuse(`All ${game.addSpaceLimit} new spaces for this round are gone.`);
+    return;
+  }
+  const { space, problem } = checkNewSpace(game, staged.space);
+  if (problem) {
+    await refuse(problem);
+    return;
+  }
+
+  game = reduce(game, { type: 'submitSpace', player: event.user_name, space, redemptionId: event.id });
+  broadcastState();
+  if (socket) sendNotice(socket, 'success', `"${space}" has been submitted.\nYour points will be refunded if not approved.`);
 }
 
 async function redeemFreeSpace(event) {
@@ -420,7 +506,7 @@ async function redeemFreeSpace(event) {
 
   const refuse = async (reason) => {
     if (socket) sendNotice(socket, 'error', `${reason}\nYour points have been refunded.`);
-    await channelPoints.resolveRedemption(event.id, 'CANCELED');
+    await channelPoints.resolveRedemption(event.id, event.reward.id, 'CANCELED');
   };
 
   if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
@@ -443,7 +529,7 @@ async function redeemFreeSpace(event) {
   game = reduce(game, { type: 'useFreeSpace', space: staged.space });
   broadcastState();
   if (socket) sendNotice(socket, 'success', `"${staged.space}" is now called for everyone.`);
-  await channelPoints.resolveRedemption(event.id, 'FULFILLED');
+  await channelPoints.resolveRedemption(event.id, event.reward.id, 'FULFILLED');
 }
 
 const sendSheet = (socket, sheet) => socket.send(JSON.stringify({ type: 'sheet', sheet }));
@@ -470,6 +556,8 @@ wss.on('connection', (socket, request) => {
       'callAll',
       'startNewRound',
       'addScribe',
+      'approveSpace',
+      'rejectSpace',
     ];
     if (scribeActions.includes(msg.type) && !socket.scribeLogin) {
       sendNotice(socket, 'error', 'Scribes only.');
@@ -484,6 +572,20 @@ wss.on('connection', (socket, request) => {
         game = reduce(game, msg);
         broadcastState();
         break;
+
+      case 'approveSpace':
+      case 'rejectSpace': {
+        const submission = game.spaceSubmissions.find((pending) => pending.space === msg.space);
+        game = reduce(game, msg);
+        broadcastState();
+        if (!submission?.redemptionId) break;
+        // approving spends the points, rejecting hands them back
+        const status = msg.type === 'approveSpace' ? 'FULFILLED' : 'CANCELED';
+        channelPoints
+          .resolveRedemption(submission.redemptionId, channelPoints.rewardIdFor('addSpace'), status)
+          .catch((error) => console.log('could not resolve submission:', error.message));
+        break;
+      }
 
       case 'resetScores': {
         const exportedTo = exportScores();
@@ -557,6 +659,57 @@ wss.on('connection', (socket, request) => {
           return;
         }
         game = reduce(game, { type: 'useFreeSpace', space });
+        broadcastState();
+        break;
+      }
+
+      case 'removeSpace': {
+        const name = socket.playerName;
+        if (!name) {
+          sendNotice(socket, 'error', 'Join the game first.');
+          return;
+        }
+        if (removeSpacesLeft(game) === 0) {
+          sendNotice(socket, 'info', `All ${game.removeSpaceLimit} removals for this round have been used.`);
+          return;
+        }
+        const space = String(msg.space ?? '');
+        const problem = checkRemoveSpace(game, space);
+        if (problem) {
+          sendNotice(socket, 'error', problem);
+          return;
+        }
+        if (channelPoints.isLinked()) {
+          stagedRemovals.set(socket.sheetKey, { space, at: Date.now() });
+          sendNotice(socket, 'info', `Please redeem "Remove Space" now in the Channel Points menu to remove "${space}".`);
+          return;
+        }
+        game = reduce(game, { type: 'removeSpace', space });
+        broadcastState();
+        break;
+      }
+
+      case 'submitSpace': {
+        const name = socket.playerName;
+        if (!name) {
+          sendNotice(socket, 'error', 'Join the game first.');
+          return;
+        }
+        if (addSpacesLeft(game) === 0) {
+          sendNotice(socket, 'info', `All ${game.addSpaceLimit} new spaces for this round have been used.`);
+          return;
+        }
+        const { space, problem } = checkNewSpace(game, String(msg.space ?? ''));
+        if (problem) {
+          sendNotice(socket, 'error', problem);
+          return;
+        }
+        if (channelPoints.isLinked()) {
+          stagedNewSpaces.set(socket.sheetKey, { space, at: Date.now() });
+          sendNotice(socket, 'info', `Please redeem "Add Space" now in the Channel Points menu to send "${space}" for approval.`);
+          return;
+        }
+        game = reduce(game, { type: 'submitSpace', player: name, space, redemptionId: '' });
         broadcastState();
         break;
       }
@@ -651,7 +804,7 @@ if (twitchConfig) {
   if (channelPoints.isLinked()) {
     const baseUrl = twitchConfig.publicUrl ?? '';
     channelPoints
-      .ensureSetUp(game.freeSpaceCost, `${baseUrl}/twitch/eventsub`)
+      .ensureSetUp(abilityCosts(), `${baseUrl}/twitch/eventsub`)
       .then(() => console.log('channel points ready for', channelPoints.linkedLogin()))
       .catch((error) => console.log('channel points setup failed:', error.message));
   } else {

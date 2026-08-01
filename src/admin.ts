@@ -14,6 +14,8 @@ import {
   resetScores,
   callAll,
   addScribe,
+  approveSpace,
+  rejectSpace,
 } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
@@ -24,6 +26,11 @@ const centerSpaceInput = document.getElementById('center-space') as HTMLInputEle
 const centerIsFreeInput = document.getElementById('center-is-free') as HTMLInputElement;
 const freeSpaceCostInput = document.getElementById('free-space-cost') as HTMLInputElement;
 const freeSpaceLimitInput = document.getElementById('free-space-limit') as HTMLInputElement;
+const addSpaceCostInput = document.getElementById('add-space-cost') as HTMLInputElement;
+const addSpaceLimitInput = document.getElementById('add-space-limit') as HTMLInputElement;
+const removeSpaceCostInput = document.getElementById('remove-space-cost') as HTMLInputElement;
+const removeSpaceLimitInput = document.getElementById('remove-space-limit') as HTMLInputElement;
+const spaceQueueEl = document.getElementById('space-queue') as HTMLUListElement;
 const saveBtn = document.getElementById('save-config') as HTMLButtonElement;
 const newRoundBtn = document.getElementById('new-round') as HTMLButtonElement;
 const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElement;
@@ -56,6 +63,43 @@ function renderControls(): void {
   centerIsFreeInput.checked = state.centerIsFree;
   freeSpaceCostInput.value = String(state.freeSpaceCost);
   freeSpaceLimitInput.value = String(state.freeSpaceLimit);
+  addSpaceCostInput.value = String(state.addSpaceCost);
+  addSpaceLimitInput.value = String(state.addSpaceLimit);
+  removeSpaceCostInput.value = String(state.removeSpaceCost);
+  removeSpaceLimitInput.value = String(state.removeSpaceLimit);
+}
+
+function renderSpaceQueue(): void {
+  spaceQueueEl.replaceChildren();
+  for (const submission of state.spaceSubmissions) {
+    const item = document.createElement('li');
+    appendLabelWithBreaks(item, `${submission.player} suggests "${submission.space}"`);
+
+    const approve = document.createElement('button');
+    approve.type = 'button';
+    approve.textContent = 'Approve';
+    approve.addEventListener('click', () => approveSpace(submission.space));
+
+    const reject = document.createElement('button');
+    reject.type = 'button';
+    reject.textContent = 'Reject';
+    reject.addEventListener('click', () => rejectSpace(submission.space));
+
+    item.append(' ', approve, ' ', reject);
+    spaceQueueEl.appendChild(item);
+  }
+
+  for (const space of state.pendingSpaces) {
+    const item = document.createElement('li');
+    appendLabelWithBreaks(item, `${space} - joins the list next round`);
+    spaceQueueEl.appendChild(item);
+  }
+
+  for (const space of state.removedSpaces) {
+    const item = document.createElement('li');
+    appendLabelWithBreaks(item, `${space} - leaves the list next round`);
+    spaceQueueEl.appendChild(item);
+  }
 }
 
 function renderRoundInfo(): void {
@@ -105,6 +149,23 @@ function renderScoreboard(): void {
   }
 }
 
+// the settings side of the state, so the form knows when the server's copy changed
+function savedConfig(from: GameState): BoardConfig {
+  return {
+    name: from.name,
+    size: from.size,
+    spaceList: from.spaceList,
+    centerSpace: from.centerSpace,
+    centerIsFree: from.centerIsFree,
+    freeSpaceCost: from.freeSpaceCost,
+    freeSpaceLimit: from.freeSpaceLimit,
+    addSpaceCost: from.addSpaceCost,
+    addSpaceLimit: from.addSpaceLimit,
+    removeSpaceCost: from.removeSpaceCost,
+    removeSpaceLimit: from.removeSpaceLimit,
+  };
+}
+
 function formConfig(): BoardConfig {
   return {
     name: nameInput.value.trim(),
@@ -117,6 +178,10 @@ function formConfig(): BoardConfig {
     centerIsFree: centerIsFreeInput.checked,
     freeSpaceCost: Math.max(0, Number(freeSpaceCostInput.value) || 0),
     freeSpaceLimit: Math.max(0, Number(freeSpaceLimitInput.value) || 0),
+    addSpaceCost: Math.max(0, Number(addSpaceCostInput.value) || 0),
+    addSpaceLimit: Math.max(0, Number(addSpaceLimitInput.value) || 0),
+    removeSpaceCost: Math.max(0, Number(removeSpaceCostInput.value) || 0),
+    removeSpaceLimit: Math.max(0, Number(removeSpaceLimitInput.value) || 0),
   };
 }
 
@@ -130,7 +195,11 @@ function renderSaveButton(): void {
     form.centerSpace !== state.centerSpace ||
     form.centerIsFree !== state.centerIsFree ||
     form.freeSpaceCost !== state.freeSpaceCost ||
-    form.freeSpaceLimit !== state.freeSpaceLimit;
+    form.freeSpaceLimit !== state.freeSpaceLimit ||
+    form.addSpaceCost !== state.addSpaceCost ||
+    form.addSpaceLimit !== state.addSpaceLimit ||
+    form.removeSpaceCost !== state.removeSpaceCost ||
+    form.removeSpaceLimit !== state.removeSpaceLimit;
   saveBtn.classList.toggle('unsaved', unsaved);
 }
 
@@ -142,6 +211,10 @@ const configFields = [
   centerIsFreeInput,
   freeSpaceCostInput,
   freeSpaceLimitInput,
+  addSpaceCostInput,
+  addSpaceLimitInput,
+  removeSpaceCostInput,
+  removeSpaceLimitInput,
 ];
 for (const field of configFields) {
   field.addEventListener('input', renderSaveButton);
@@ -175,16 +248,14 @@ onNotice((notice) => {
 });
 
 subscribe((next) => {
-  const configChanged =
-    next.name !== state.name ||
-    next.size !== state.size ||
-    next.spaceList.join('\n') !== state.spaceList.join('\n');
+  const configChanged = JSON.stringify(savedConfig(next)) !== JSON.stringify(savedConfig(state));
   state = next;
   if (configChanged) renderControls();
   renderSaveButton();
   renderRoundInfo();
   renderCallList();
   renderScoreboard();
+  renderSpaceQueue();
 });
 
 renderControls();
@@ -192,3 +263,4 @@ renderSaveButton();
 renderRoundInfo();
 renderCallList();
 renderScoreboard();
+renderSpaceQueue();

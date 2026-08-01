@@ -1,7 +1,18 @@
 // Player view. joins with a name, renders the server's sheet, and forwards clicks and claims.
 // the server owns everything, this just shows what comes back.
 
-import { type GameState, verifyBingo, roundOverText, uncalledSpaces, freeSpacesLeft } from './game.js';
+import {
+  type GameState,
+  verifyBingo,
+  roundOverText,
+  uncalledSpaces,
+  freeSpacesLeft,
+  addSpacesLeft,
+  removeSpacesLeft,
+  removableSpaces,
+  checkRemoveSpace,
+  checkNewSpace,
+} from './game.js';
 import { type Sheet } from './bingo.js';
 import {
   loadState,
@@ -13,6 +24,8 @@ import {
   mark,
   claimBingo,
   useFreeSpace,
+  submitSpace,
+  removeSpace,
 } from './state.js';
 import { appendLabelWithBreaks } from './labels.js';
 
@@ -35,6 +48,22 @@ const freeSpaceSubmit = document.getElementById('free-space-submit') as HTMLButt
 const freeSpaceCancel = document.getElementById('free-space-cancel') as HTMLButtonElement;
 const freeSpaceMessage = document.getElementById('free-space-message') as HTMLParagraphElement;
 const freeSpaceLeftEl = document.getElementById('free-space-left') as HTMLParagraphElement;
+
+const addSpaceBtn = document.getElementById('add-space') as HTMLButtonElement;
+const addSpaceForm = document.getElementById('add-space-form') as HTMLDivElement;
+const addSpaceInput = document.getElementById('add-space-input') as HTMLInputElement;
+const addSpaceSubmit = document.getElementById('add-space-submit') as HTMLButtonElement;
+const addSpaceCancel = document.getElementById('add-space-cancel') as HTMLButtonElement;
+const addSpaceMessage = document.getElementById('add-space-message') as HTMLParagraphElement;
+const addSpaceLeftEl = document.getElementById('add-space-left') as HTMLParagraphElement;
+
+const removeSpaceBtn = document.getElementById('remove-space') as HTMLButtonElement;
+const removeSpaceForm = document.getElementById('remove-space-form') as HTMLDivElement;
+const removeSpacePick = document.getElementById('remove-space-pick') as HTMLSelectElement;
+const removeSpaceSubmit = document.getElementById('remove-space-submit') as HTMLButtonElement;
+const removeSpaceCancel = document.getElementById('remove-space-cancel') as HTMLButtonElement;
+const removeSpaceMessage = document.getElementById('remove-space-message') as HTMLParagraphElement;
+const removeSpaceLeftEl = document.getElementById('remove-space-left') as HTMLParagraphElement;
 
 const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
@@ -154,6 +183,37 @@ function renderFreeSpace(): void {
   }
 }
 
+function renderAddSpace(): void {
+  addSpaceBtn.textContent = `Add Space - ${state.addSpaceCost} points`;
+  const left = addSpacesLeft(state);
+  addSpaceLeftEl.textContent = `${left} of ${state.addSpaceLimit} left this round`;
+  addSpaceBtn.disabled = left === 0;
+  if (left === 0) addSpaceForm.hidden = true;
+}
+
+function renderRemoveSpace(): void {
+  removeSpaceBtn.textContent = `Remove Space - ${state.removeSpaceCost} points`;
+  const left = removeSpacesLeft(state);
+  removeSpaceLeftEl.textContent = `${left} of ${state.removeSpaceLimit} left this round`;
+  removeSpaceBtn.disabled = left === 0;
+  if (left === 0) removeSpaceForm.hidden = true;
+
+  const wanted = removeSpacePick.value;
+  removeSpacePick.replaceChildren(
+    ...removableSpaces(state).map((space) => {
+      const option = document.createElement('option');
+      option.value = space;
+      option.textContent = space;
+      return option;
+    }),
+  );
+  removeSpacePick.value = wanted;
+  if (removeSpacePick.selectedIndex < 0) {
+    removeSpacePick.selectedIndex = 0;
+    if (wanted && !removeSpaceForm.hidden) removeSpaceMessage.textContent = `"${wanted}" is already going, pick another.`;
+  }
+}
+
 function renderScoreboard(): void {
   const ranked = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
   scoreboardEl.replaceChildren();
@@ -210,6 +270,8 @@ subscribe((next) => {
   renderCalledList();
   renderScoreboard();
   renderFreeSpace();
+  renderAddSpace();
+  renderRemoveSpace();
   render();
   if (!state.roundOver) bannerEl.hidden = true;
   if (roundChanged && hasJoined()) {
@@ -267,6 +329,67 @@ freeSpaceSubmit.addEventListener('click', () => {
   useFreeSpace(space);
   freeSpaceForm.hidden = true;
   freeSpaceMessage.textContent = onTwitch ? '' : `"${space}" called for everyone.`;
+});
+
+addSpaceBtn.addEventListener('click', () => {
+  if (!hasJoined()) {
+    addSpaceMessage.textContent = 'Join the game first.';
+    return;
+  }
+  addSpaceForm.hidden = false;
+  addSpaceMessage.textContent = '';
+  addSpaceInput.focus();
+});
+
+addSpaceCancel.addEventListener('click', () => {
+  addSpaceForm.hidden = true;
+  addSpaceInput.value = '';
+  addSpaceMessage.textContent = '';
+});
+
+// nothing is spent yet, so problems show while they type
+addSpaceInput.addEventListener('input', () => {
+  addSpaceMessage.textContent = addSpaceInput.value.trim() ? checkNewSpace(state, addSpaceInput.value).problem : '';
+});
+
+addSpaceSubmit.addEventListener('click', () => {
+  const { space, problem } = checkNewSpace(state, addSpaceInput.value);
+  if (problem) {
+    addSpaceMessage.textContent = problem;
+    return;
+  }
+  submitSpace(space);
+  addSpaceForm.hidden = true;
+  addSpaceInput.value = '';
+  addSpaceMessage.textContent = onTwitch ? '' : `"${space}" sent to the scribes.`;
+});
+
+removeSpaceBtn.addEventListener('click', () => {
+  if (!hasJoined()) {
+    removeSpaceMessage.textContent = 'Join the game first.';
+    return;
+  }
+  removeSpaceForm.hidden = false;
+  removeSpaceMessage.textContent = '';
+  removeSpacePick.focus();
+});
+
+removeSpaceCancel.addEventListener('click', () => {
+  removeSpaceForm.hidden = true;
+  removeSpaceMessage.textContent = '';
+});
+
+removeSpaceSubmit.addEventListener('click', () => {
+  const space = removeSpacePick.value;
+  if (!space) return;
+  const problem = checkRemoveSpace(state, space);
+  if (problem) {
+    removeSpaceMessage.textContent = problem;
+    return;
+  }
+  removeSpace(space);
+  removeSpaceForm.hidden = true;
+  removeSpaceMessage.textContent = onTwitch ? '' : `"${space}" leaves the list next round.`;
 });
 
 callBingoBtn.addEventListener('click', () => {

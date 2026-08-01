@@ -25,6 +25,10 @@
     <section class="controls">
       <label>Free space cost <input id="free-space-cost" type="number" min="0" /></label>
       <label>Free spaces per round <input id="free-space-limit" type="number" min="0" /></label>
+      <label>Add space cost <input id="add-space-cost" type="number" min="0" /></label>
+      <label>New spaces per round <input id="add-space-limit" type="number" min="0" /></label>
+      <label>Remove space cost <input id="remove-space-cost" type="number" min="0" /></label>
+      <label>Removals per round <input id="remove-space-limit" type="number" min="0" /></label>
     </section>
     <p>
       The cost is set on the Twitch reward.
@@ -52,6 +56,11 @@
     <section class="scores">
       <h2>Scoreboard <button id="reset-scores" type="button">Reset</button></h2>
       <ol id="scoreboard"></ol>
+    </section>
+
+    <section class="submissions">
+      <h2>New space submissions</h2>
+      <ul id="space-queue"></ul>
     </section>
 
     <section class="call-sheet">

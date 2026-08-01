@@ -87,7 +87,9 @@ button:hover {
   border-color: var(--green);
 }
 
-#free-space:disabled {
+#free-space:disabled,
+#add-space:disabled,
+#remove-space:disabled {
   opacity: 0.5;
   cursor: default;
 }
