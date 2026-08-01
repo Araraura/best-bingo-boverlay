@@ -53,6 +53,11 @@ body.local {
 
 .right-panel {
   grid-area: right;
+  min-width: 0;
+}
+
+.right-panel select {
+  width: 100%;
 }
 
 .panel {
@@ -231,6 +236,22 @@ input[type='range'] {
 .call-item.called {
   background: var(--green);
   color: #06180a;
+}
+
+.call-item.protected {
+  background: #56248d;
+  color: #fff;
+}
+
+#protect-list .call-item.going {
+  background: #a32d2d;
+  color: #fff;
+  cursor: default;
+}
+
+#call-list .call-item.going {
+  outline: 2px solid #e24b4a;
+  outline-offset: -2px;
 }
 
 .call-item.free-called {

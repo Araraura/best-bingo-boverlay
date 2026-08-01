@@ -31,6 +31,8 @@ const addSpaceLimitInput = document.getElementById('add-space-limit') as HTMLInp
 const removeSpaceCostInput = document.getElementById('remove-space-cost') as HTMLInputElement;
 const removeSpaceLimitInput = document.getElementById('remove-space-limit') as HTMLInputElement;
 const spaceQueueEl = document.getElementById('space-queue') as HTMLUListElement;
+const protectListEl = document.getElementById('protect-list') as HTMLDivElement;
+const protectAllBtn = document.getElementById('protect-all') as HTMLButtonElement;
 const saveBtn = document.getElementById('save-config') as HTMLButtonElement;
 const newRoundBtn = document.getElementById('new-round') as HTMLButtonElement;
 const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElement;
@@ -45,6 +47,7 @@ const addScribeBtn = document.getElementById('add-scribe') as HTMLButtonElement;
 const adminMessageEl = document.getElementById('admin-message') as HTMLParagraphElement;
 
 let state: GameState = loadState();
+let protectedDraft: string[] = []; // edited by the chips, saved with the rest of the settings
 
 sizeSelect.replaceChildren(
   ...BOARD_SIZES.map((size) => {
@@ -67,6 +70,35 @@ function renderControls(): void {
   addSpaceLimitInput.value = String(state.addSpaceLimit);
   removeSpaceCostInput.value = String(state.removeSpaceCost);
   removeSpaceLimitInput.value = String(state.removeSpaceLimit);
+  protectedDraft = [...state.protectedSpaces];
+  renderProtectList();
+}
+
+function renderProtectList(): void {
+  const protectedNow = new Set(protectedDraft);
+  const going = new Set(state.removedSpaces);
+  protectListEl.replaceChildren();
+  for (const space of [...new Set(state.spaceList)].sort((a, b) => a.localeCompare(b))) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'call-item';
+    if (protectedNow.has(space)) button.classList.add('protected');
+    appendLabelWithBreaks(button, space);
+    if (going.has(space)) {
+      button.classList.add('going');
+      button.disabled = true;
+      protectListEl.appendChild(button);
+      continue;
+    }
+    button.addEventListener('click', () => {
+      protectedDraft = protectedNow.has(space)
+        ? protectedDraft.filter((kept) => kept !== space)
+        : [...protectedDraft, space];
+      renderProtectList();
+      renderSaveButton();
+    });
+    protectListEl.appendChild(button);
+  }
 }
 
 function renderSpaceQueue(): void {
@@ -117,12 +149,14 @@ function renderCallList(): void {
   callListEl.replaceChildren();
 
   const freeSpaces = new Set(state.freeSpaces);
+  const going = new Set(state.removedSpaces);
   const uniqueSpaces = callableSpaces(state).sort((a, b) => a.localeCompare(b));
   for (const space of uniqueSpaces) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'call-item';
     if (called.has(space)) button.classList.add('called');
+    if (going.has(space)) button.classList.add('going');
     appendLabelWithBreaks(button, space);
     if (freeSpaces.has(space)) {
       button.classList.add('free-called');
@@ -163,6 +197,7 @@ function savedConfig(from: GameState): BoardConfig {
     addSpaceLimit: from.addSpaceLimit,
     removeSpaceCost: from.removeSpaceCost,
     removeSpaceLimit: from.removeSpaceLimit,
+    protectedSpaces: from.protectedSpaces,
   };
 }
 
@@ -182,6 +217,7 @@ function formConfig(): BoardConfig {
     addSpaceLimit: Math.max(0, Number(addSpaceLimitInput.value) || 0),
     removeSpaceCost: Math.max(0, Number(removeSpaceCostInput.value) || 0),
     removeSpaceLimit: Math.max(0, Number(removeSpaceLimitInput.value) || 0),
+    protectedSpaces: protectedDraft,
   };
 }
 
@@ -199,7 +235,8 @@ function renderSaveButton(): void {
     form.addSpaceCost !== state.addSpaceCost ||
     form.addSpaceLimit !== state.addSpaceLimit ||
     form.removeSpaceCost !== state.removeSpaceCost ||
-    form.removeSpaceLimit !== state.removeSpaceLimit;
+    form.removeSpaceLimit !== state.removeSpaceLimit ||
+    [...form.protectedSpaces].sort().join('\n') !== [...state.protectedSpaces].sort().join('\n');
   saveBtn.classList.toggle('unsaved', unsaved);
 }
 
@@ -235,6 +272,13 @@ resetScoresBtn.addEventListener('click', () => {
   }
 });
 callAllBtn.addEventListener('click', () => callAll());
+
+protectAllBtn.addEventListener('click', () => {
+  const spaces = [...new Set(state.spaceList)];
+  protectedDraft = spaces.every((space) => protectedDraft.includes(space)) ? [] : spaces;
+  renderProtectList();
+  renderSaveButton();
+});
 
 addScribeBtn.addEventListener('click', () => {
   const name = scribeNameInput.value.trim();

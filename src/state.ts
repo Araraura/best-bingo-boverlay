@@ -63,7 +63,7 @@ function connect(): void {
   socket.addEventListener('message', (event) => {
     const message = JSON.parse(event.data as string) as ServerMessage;
     if (message.type === 'state') {
-      current = message.game;
+      current = { ...defaultGameState(), ...message.game };
       for (const listener of stateListeners) listener(current);
     } else if (message.type === 'sheet') {
       for (const listener of sheetListeners) listener(message.sheet);

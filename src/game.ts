@@ -98,6 +98,7 @@ export interface GameState {
   addSpaceLimit: number; // how many new spaces a round allows, across everyone
   removeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   removeSpaceLimit: number; // how many spaces a round can lose, across everyone
+  protectedSpaces: string[]; // scribes keep these safe from the remove ability
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
   roundSize: BoardSize; // what sheets actually use, a size change waits for the next round
@@ -124,6 +125,7 @@ export function defaultGameState(): GameState {
     addSpaceLimit: 1,
     removeSpaceCost: 500,
     removeSpaceLimit: 1,
+    protectedSpaces: [],
     calledSpaces: [],
     roundId: 1,
     roundSize: 5,
@@ -177,12 +179,13 @@ export function spacesNeededFor(size: BoardSize): number {
 
 // spaces a viewer can pick to remove
 export function removableSpaces(state: GameState): string[] {
-  const leaving = new Set(state.removedSpaces);
-  return [...new Set(state.spaceList)].filter((space) => !leaving.has(space)).sort((a, b) => a.localeCompare(b));
+  const offLimits = new Set([...state.removedSpaces, ...state.protectedSpaces]);
+  return [...new Set(state.spaceList)].filter((space) => !offLimits.has(space)).sort((a, b) => a.localeCompare(b));
 }
 
 // stops the list being emptied below what a full sheet needs
 export function checkRemoveSpace(state: GameState, space: string): string {
+  if (state.protectedSpaces.includes(space)) return `"${space}" is protected by the scribes.`;
   if (!removableSpaces(state).includes(space)) return `"${space}" can't be removed right now.`;
   if (spaceListNextRound(state).length - 1 < spacesNeededFor(state.size)) {
     return `The list would be too short for a ${state.size}x${state.size} board.`;
@@ -249,6 +252,7 @@ export type BoardConfig = Pick<
   | 'addSpaceLimit'
   | 'removeSpaceCost'
   | 'removeSpaceLimit'
+  | 'protectedSpaces'
 >;
 
 // the only way to change state. the server applies these with reduce.

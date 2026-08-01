@@ -76,6 +76,8 @@ let joinedName = '';
 let twitchToken = '';
 let lastRoundId = -1;
 let onTwitch = false;
+let removeChoice = '';
+let freeChoice = '';
 let cooldownTimer: number | undefined;
 
 function hasJoined(): boolean {
@@ -162,25 +164,29 @@ function renderCalledList(): void {
 function renderFreeSpace(): void {
   freeSpaceBtn.textContent = `Free Space - ${state.freeSpaceCost} points`;
   const left = freeSpacesLeft(state);
-  freeSpaceLeftEl.textContent = `${left} of ${state.freeSpaceLimit} left this round`;
-  const canUse = !state.roundOver && left > 0;
+  const options = uncalledSpaces(state);
+  freeSpaceLeftEl.textContent = options.length
+    ? `${left} of ${state.freeSpaceLimit} left this round`
+    : 'Nothing is left to call';
+  const canUse = !state.roundOver && left > 0 && options.length > 0;
   freeSpaceBtn.disabled = !canUse;
   if (!canUse) freeSpaceForm.hidden = true;
 
-  const wanted = freeSpacePick.value;
   freeSpacePick.replaceChildren(
-    ...uncalledSpaces(state).map((space) => {
+    ...options.map((space) => {
       const option = document.createElement('option');
       option.value = space;
       option.textContent = space;
       return option;
     }),
   );
-  freeSpacePick.value = wanted;
-  if (freeSpacePick.selectedIndex < 0) {
-    freeSpacePick.selectedIndex = 0;
-    if (wanted && !freeSpaceForm.hidden) freeSpaceMessage.textContent = `"${wanted}" was just called, pick another.`;
+
+  if (freeChoice && !options.includes(freeChoice)) {
+    if (!freeSpaceForm.hidden) freeSpaceMessage.textContent = `"${freeChoice}" was already called.`;
+    freeChoice = '';
   }
+  freeSpacePick.value = freeChoice;
+  if (!freeChoice) freeSpacePick.selectedIndex = -1;
 }
 
 function renderAddSpace(): void {
@@ -194,24 +200,29 @@ function renderAddSpace(): void {
 function renderRemoveSpace(): void {
   removeSpaceBtn.textContent = `Remove Space - ${state.removeSpaceCost} points`;
   const left = removeSpacesLeft(state);
-  removeSpaceLeftEl.textContent = `${left} of ${state.removeSpaceLimit} left this round`;
-  removeSpaceBtn.disabled = left === 0;
-  if (left === 0) removeSpaceForm.hidden = true;
+  const options = removableSpaces(state);
+  removeSpaceLeftEl.textContent = options.length
+    ? `${left} of ${state.removeSpaceLimit} left this round`
+    : 'Nothing can be removed right now';
+  const canUse = left > 0 && options.length > 0;
+  removeSpaceBtn.disabled = !canUse;
+  if (!canUse) removeSpaceForm.hidden = true;
 
-  const wanted = removeSpacePick.value;
   removeSpacePick.replaceChildren(
-    ...removableSpaces(state).map((space) => {
+    ...options.map((space) => {
       const option = document.createElement('option');
       option.value = space;
       option.textContent = space;
       return option;
     }),
   );
-  removeSpacePick.value = wanted;
-  if (removeSpacePick.selectedIndex < 0) {
-    removeSpacePick.selectedIndex = 0;
-    if (wanted && !removeSpaceForm.hidden) removeSpaceMessage.textContent = `"${wanted}" is already going, pick another.`;
+
+  if (removeChoice && !options.includes(removeChoice)) {
+    if (!removeSpaceForm.hidden) removeSpaceMessage.textContent = `"${removeChoice}" was already called for removal.`;
+    removeChoice = '';
   }
+  removeSpacePick.value = removeChoice;
+  if (!removeChoice) removeSpacePick.selectedIndex = -1;
 }
 
 function renderScoreboard(): void {
@@ -315,6 +326,10 @@ freeSpaceBtn.addEventListener('click', () => {
   }
   freeSpaceForm.hidden = false;
   freeSpaceMessage.textContent = '';
+  if (!freeChoice) {
+    freeChoice = freeSpacePick.options[0]?.value ?? '';
+    freeSpacePick.value = freeChoice;
+  }
   freeSpacePick.focus();
 });
 
@@ -323,10 +338,23 @@ freeSpaceCancel.addEventListener('click', () => {
   freeSpaceMessage.textContent = '';
 });
 
+freeSpacePick.addEventListener('change', () => {
+  freeChoice = freeSpacePick.value;
+  freeSpaceMessage.textContent = '';
+});
+
 freeSpaceSubmit.addEventListener('click', () => {
-  const space = freeSpacePick.value;
-  if (!space) return;
+  const space = freeChoice;
+  if (!space) {
+    freeSpaceMessage.textContent = 'Pick a space first.';
+    return;
+  }
+  if (!uncalledSpaces(state).includes(space)) {
+    freeSpaceMessage.textContent = `"${space}" was already called.`;
+    return;
+  }
   useFreeSpace(space);
+  freeChoice = '';
   freeSpaceForm.hidden = true;
   freeSpaceMessage.textContent = onTwitch ? '' : `"${space}" called for everyone.`;
 });
@@ -371,6 +399,10 @@ removeSpaceBtn.addEventListener('click', () => {
   }
   removeSpaceForm.hidden = false;
   removeSpaceMessage.textContent = '';
+  if (!removeChoice) {
+    removeChoice = removeSpacePick.options[0]?.value ?? '';
+    removeSpacePick.value = removeChoice;
+  }
   removeSpacePick.focus();
 });
 
@@ -379,15 +411,24 @@ removeSpaceCancel.addEventListener('click', () => {
   removeSpaceMessage.textContent = '';
 });
 
+removeSpacePick.addEventListener('change', () => {
+  removeChoice = removeSpacePick.value;
+  removeSpaceMessage.textContent = '';
+});
+
 removeSpaceSubmit.addEventListener('click', () => {
-  const space = removeSpacePick.value;
-  if (!space) return;
+  const space = removeChoice;
+  if (!space) {
+    removeSpaceMessage.textContent = 'Pick a space first.';
+    return;
+  }
   const problem = checkRemoveSpace(state, space);
   if (problem) {
     removeSpaceMessage.textContent = problem;
     return;
   }
   removeSpace(space);
+  removeChoice = '';
   removeSpaceForm.hidden = true;
   removeSpaceMessage.textContent = onTwitch ? '' : `"${space}" leaves the list next round.`;
 });
