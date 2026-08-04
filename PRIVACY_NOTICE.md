@@ -1,0 +1,1 @@
+This website does not collect, store, or share any personal information. We do not use cookies, analytics, tracking technologies, advertising, or user accounts. No personal data is processed through this website.
