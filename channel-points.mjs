@@ -172,11 +172,37 @@ async function ensureSubscriptions(callbackUrl) {
   }
 }
 
+export async function syncCosts(costs) {
+  if (!isLinked()) return [];
+  const token = await userToken();
+  const mine = await helix(
+    `channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}&only_manageable_rewards=true`,
+    { token },
+  );
+
+  const changed = [];
+  for (const reward of REWARDS) {
+    const rewardId = broadcaster.rewards[reward.key];
+    const current = mine.data.find((made) => made.id === rewardId);
+    const wanted = costs[reward.key];
+    if (!current || !Number.isInteger(wanted) || wanted < 1 || current.cost === wanted) continue;
+
+    await helix(`channel_points/custom_rewards?broadcaster_id=${broadcaster.userId}&id=${rewardId}`, {
+      token,
+      method: 'PATCH',
+      body: { cost: wanted },
+    });
+    changed.push(`${reward.title} ${current.cost} to ${wanted}`);
+  }
+  return changed;
+}
+
 export async function ensureSetUp(costs, callbackUrl) {
   if (!broadcaster?.refreshToken) return;
   broadcaster.rewards = await ensureRewards(costs);
   save();
   await ensureSubscriptions(callbackUrl);
+  await syncCosts(costs);
 }
 
 export async function completeAuth(code, redirectUri, costs, callbackUrl) {

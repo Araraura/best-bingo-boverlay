@@ -161,36 +161,12 @@ async function handleAuth(urlPath, req, res) {
       res.end('Scribes only. Log in at /admin.html first.');
       return;
     }
-    const state = randomBytes(16).toString('hex');
+    const state = `broadcaster.${randomBytes(16).toString('hex')}`;
     res.writeHead(302, {
       'Set-Cookie': `oauth_state=${state}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
-      Location: channelPoints.authUrl(`${baseUrl}/auth/broadcaster/callback`, state),
+      Location: channelPoints.authUrl(redirectUri, state),
     });
     res.end();
-    return;
-  }
-
-  if (urlPath === '/auth/broadcaster/callback') {
-    const query = new URL(req.url, 'https://localhost').searchParams;
-    const cookies = parseCookies(req.headers.cookie);
-    if (!query.get('code') || !query.get('state') || query.get('state') !== cookies.oauth_state) {
-      res.writeHead(403);
-      res.end('Linking failed. Try again from /auth/broadcaster');
-      return;
-    }
-    try {
-      const login = await channelPoints.completeAuth(
-        query.get('code'),
-        `${baseUrl}/auth/broadcaster/callback`,
-        abilityCosts(),
-        `${baseUrl}/twitch/eventsub`,
-      );
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.end(`Channel points linked for ${login}. Rewards are ready.`);
-    } catch (error) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end(`Linking failed: ${error.message}`);
-    }
     return;
   }
 
@@ -202,6 +178,24 @@ async function handleAuth(urlPath, req, res) {
       res.end('Login failed. Try again from /auth/login');
       return;
     }
+
+    if (query.get('state').startsWith('broadcaster.')) {
+      try {
+        const login = await channelPoints.completeAuth(
+          query.get('code'),
+          redirectUri,
+          abilityCosts(),
+          `${baseUrl}/twitch/eventsub`,
+        );
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end(`Channel points linked for ${login}.`);
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`Linking failed: ${error.message}`);
+      }
+      return;
+    }
+
     try {
       const tokenParams = new URLSearchParams({
         client_id: loginClientId,
@@ -450,7 +444,7 @@ async function redeemRemoval(event) {
   };
 
   if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
-    await refuse('Pick the space you want gone in the bingo overlay before redeeming.');
+    await refuse('Pick the space you want to remove in the bingo overlay first before redeeming.');
     return;
   }
   if (removeSpacesLeft(game) === 0) {
@@ -481,7 +475,7 @@ async function redeemNewSpace(event) {
   };
 
   if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
-    await refuse('Type your new space in the bingo overlay before redeeming.');
+    await refuse('Type your new space in the bingo overlay first before redeeming.');
     return;
   }
   if (addSpacesLeft(game) === 0) {
@@ -510,7 +504,7 @@ async function redeemFreeSpace(event) {
   };
 
   if (!staged || Date.now() - staged.at > STAGE_TTL_MS) {
-    await refuse('Pick a space in the bingo overlay before redeeming.');
+    await refuse('Pick a space in the bingo overlay first before redeeming.');
     return;
   }
   if (game.roundOver) {
@@ -566,11 +560,21 @@ wss.on('connection', (socket, request) => {
 
     switch (msg.type) {
       // scribe actions
-      case 'setConfig':
       case 'toggleCalled':
       case 'callAll':
         game = reduce(game, msg);
         broadcastState();
+        break;
+
+      case 'setConfig':
+        game = reduce(game, msg);
+        broadcastState();
+        channelPoints
+          .syncCosts(abilityCosts())
+          .then((changed) => {
+            if (changed.length) sendNotice(socket, 'success', `Twitch prices updated: ${changed.join(', ')}.`);
+          })
+          .catch((error) => sendNotice(socket, 'error', `Could not update the Twitch prices: ${error.message}`));
         break;
 
       case 'approveSpace':
