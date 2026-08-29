@@ -2,7 +2,14 @@
 // changes go through the shared state so players update live.
 
 import { BOARD_SIZES, type BoardSize } from './bingo.js';
-import { type GameState, type BoardConfig, callableSpaces, roundOverText } from './game.js';
+import {
+  type GameState,
+  type BoardConfig,
+  callableSpaces,
+  roundOverText,
+  spaceListNextRound,
+  spacesNeededFor,
+} from './game.js';
 import {
   loadState,
   subscribe,
@@ -30,6 +37,8 @@ const addSpaceCostInput = document.getElementById('add-space-cost') as HTMLInput
 const addSpaceLimitInput = document.getElementById('add-space-limit') as HTMLInputElement;
 const removeSpaceCostInput = document.getElementById('remove-space-cost') as HTMLInputElement;
 const removeSpaceLimitInput = document.getElementById('remove-space-limit') as HTMLInputElement;
+const removeSpaceFloorInput = document.getElementById('remove-space-floor') as HTMLInputElement;
+const sizeWarningsEl = document.getElementById('size-warnings') as HTMLDivElement;
 const spaceQueueEl = document.getElementById('space-queue') as HTMLUListElement;
 const protectListEl = document.getElementById('protect-list') as HTMLDivElement;
 const protectAllBtn = document.getElementById('protect-all') as HTMLButtonElement;
@@ -70,6 +79,7 @@ function renderControls(): void {
   addSpaceLimitInput.value = String(state.addSpaceLimit);
   removeSpaceCostInput.value = String(state.removeSpaceCost);
   removeSpaceLimitInput.value = String(state.removeSpaceLimit);
+  removeSpaceFloorInput.value = String(state.removeSpaceFloor);
   protectedDraft = [...state.protectedSpaces];
   renderProtectList();
 }
@@ -131,6 +141,20 @@ function renderSpaceQueue(): void {
     const item = document.createElement('li');
     appendLabelWithBreaks(item, `${space} - leaves the list next round`);
     spaceQueueEl.appendChild(item);
+  }
+}
+
+// warns when the list is too short for a board size, counting next round's list
+function renderSizeWarnings(): void {
+  const spaces = spaceListNextRound(state).length;
+  sizeWarningsEl.replaceChildren();
+  for (const size of BOARD_SIZES) {
+    const needed = spacesNeededFor(size);
+    if (spaces >= needed) continue;
+    const warning = document.createElement('p');
+    warning.className = 'warning';
+    warning.textContent = `Not enough spaces for ${size}x${size} - ${spaces}/${needed} spaces needed`;
+    sizeWarningsEl.appendChild(warning);
   }
 }
 
@@ -197,6 +221,7 @@ function savedConfig(from: GameState): BoardConfig {
     addSpaceLimit: from.addSpaceLimit,
     removeSpaceCost: from.removeSpaceCost,
     removeSpaceLimit: from.removeSpaceLimit,
+    removeSpaceFloor: from.removeSpaceFloor,
     protectedSpaces: from.protectedSpaces,
   };
 }
@@ -217,6 +242,7 @@ function formConfig(): BoardConfig {
     addSpaceLimit: Math.max(0, Number(addSpaceLimitInput.value) || 0),
     removeSpaceCost: Math.max(0, Number(removeSpaceCostInput.value) || 0),
     removeSpaceLimit: Math.max(0, Number(removeSpaceLimitInput.value) || 0),
+    removeSpaceFloor: Math.max(25, Number(removeSpaceFloorInput.value) || 25),
     protectedSpaces: protectedDraft,
   };
 }
@@ -236,6 +262,7 @@ function renderSaveButton(): void {
     form.addSpaceLimit !== state.addSpaceLimit ||
     form.removeSpaceCost !== state.removeSpaceCost ||
     form.removeSpaceLimit !== state.removeSpaceLimit ||
+    form.removeSpaceFloor !== state.removeSpaceFloor ||
     [...form.protectedSpaces].sort().join('\n') !== [...state.protectedSpaces].sort().join('\n');
   saveBtn.classList.toggle('unsaved', unsaved);
 }
@@ -252,6 +279,7 @@ const configFields = [
   addSpaceLimitInput,
   removeSpaceCostInput,
   removeSpaceLimitInput,
+  removeSpaceFloorInput,
 ];
 for (const field of configFields) {
   field.addEventListener('input', renderSaveButton);
@@ -300,6 +328,7 @@ subscribe((next) => {
   renderCallList();
   renderScoreboard();
   renderSpaceQueue();
+  renderSizeWarnings();
 });
 
 renderControls();
@@ -308,3 +337,4 @@ renderRoundInfo();
 renderCallList();
 renderScoreboard();
 renderSpaceQueue();
+renderSizeWarnings();

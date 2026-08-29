@@ -32,8 +32,6 @@ body {
 
 body.admin {
   display: block;
-  max-width: 960px;
-  margin: 0 auto;
   background: var(--page-bg);
 }
 
@@ -97,6 +95,11 @@ button:hover {
 #remove-space:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.warning {
+  color: #e8c547;
+  margin: 0.25rem 0;
 }
 
 #save-config.unsaved {

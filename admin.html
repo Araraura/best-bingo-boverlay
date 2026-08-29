@@ -25,10 +25,17 @@
     <section class="controls">
       <label>Free space cost <input id="free-space-cost" type="number" min="0" /></label>
       <label>Free spaces per round <input id="free-space-limit" type="number" min="0" /></label>
+    </section>
+
+    <section class="controls">
       <label>Add space cost <input id="add-space-cost" type="number" min="0" /></label>
       <label>New spaces per round <input id="add-space-limit" type="number" min="0" /></label>
+    </section>
+
+    <section class="controls">
       <label>Remove space cost <input id="remove-space-cost" type="number" min="0" /></label>
       <label>Remove spaces per round <input id="remove-space-limit" type="number" min="0" /></label>
+      <label>Never go below <input id="remove-space-floor" type="number" min="25" /> spaces</label>
     </section>
     <p>
       Save the costs here to set the prices on Twitch.
@@ -39,6 +46,8 @@
       <summary>Edit spaces (one per line)</summary>
       <textarea id="spaces" rows="10" spellcheck="false"></textarea>
     </details>
+
+    <div id="size-warnings"></div>
 
     <details>
       <summary>Protect spaces from Remove Space (click to toggle)</summary>

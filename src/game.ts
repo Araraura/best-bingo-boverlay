@@ -98,6 +98,7 @@ export interface GameState {
   addSpaceLimit: number; // how many new spaces a round allows, across everyone
   removeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   removeSpaceLimit: number; // how many spaces a round can lose, across everyone
+  removeSpaceFloor: number; // the list can't be shrunk past this, 25 keeps a 5x5 playable
   protectedSpaces: string[]; // scribes keep these safe from the remove ability
   calledSpaces: string[];
   roundId: number; // bumps each round, players get a new sheet
@@ -125,6 +126,7 @@ export function defaultGameState(): GameState {
     addSpaceLimit: 1,
     removeSpaceCost: 500,
     removeSpaceLimit: 1,
+    removeSpaceFloor: 25,
     protectedSpaces: [],
     calledSpaces: [],
     roundId: 1,
@@ -187,8 +189,10 @@ export function removableSpaces(state: GameState): string[] {
 export function checkRemoveSpace(state: GameState, space: string): string {
   if (state.protectedSpaces.includes(space)) return `"${space}" is protected by the scribes.`;
   if (!removableSpaces(state).includes(space)) return `"${space}" can't be removed right now.`;
-  if (spaceListNextRound(state).length - 1 < spacesNeededFor(state.size)) {
-    return `The list would be too short for a ${state.size}x${state.size} board.`;
+
+  const floor = Math.max(state.removeSpaceFloor, spacesNeededFor(state.size));
+  if (spaceListNextRound(state).length - 1 < floor) {
+    return `The list can't drop below ${floor} spaces.`;
   }
   return '';
 }
@@ -252,6 +256,7 @@ export type BoardConfig = Pick<
   | 'addSpaceLimit'
   | 'removeSpaceCost'
   | 'removeSpaceLimit'
+  | 'removeSpaceFloor'
   | 'protectedSpaces'
 >;
 
