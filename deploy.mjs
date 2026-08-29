@@ -9,6 +9,7 @@ const serverFiles = [
   'admin.html',
   'video_overlay.html',
   'config.html',
+  'privacy.html',
   'styles.css',
   'backend-config.js',
   'package.json',

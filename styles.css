@@ -35,6 +35,13 @@ body.admin {
   background: var(--page-bg);
 }
 
+body.page {
+  display: block;
+  max-width: 800px;
+  padding: 16px;
+  background: var(--page-bg);
+}
+
 body.local {
   background: var(--page-bg);
 }
