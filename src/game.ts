@@ -197,10 +197,9 @@ export function checkRemoveSpace(state: GameState, space: string): string {
   return '';
 }
 
-// submissions waiting on a scribe count too, a rejected one gives its slot back
+// only approved spaces use up the round's allowance, waiting on a scribe costs nothing
 export function addSpacesLeft(state: GameState): number {
-  const used = state.spaceSubmissions.length + state.pendingSpaces.length;
-  return Math.max(0, state.addSpaceLimit - used);
+  return Math.max(0, state.addSpaceLimit - state.pendingSpaces.length);
 }
 
 // the spaces a player can pick for a free space

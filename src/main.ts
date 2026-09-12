@@ -285,6 +285,11 @@ subscribe((next) => {
   renderRemoveSpace();
   render();
   if (!state.roundOver) bannerEl.hidden = true;
+  if (roundChanged) {
+    // whatever the last round said no longer applies
+    window.clearInterval(cooldownTimer);
+    messageEl.textContent = '';
+  }
   if (roundChanged && hasJoined()) {
     sheet = null;
     render();
