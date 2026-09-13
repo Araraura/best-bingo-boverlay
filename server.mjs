@@ -8,7 +8,7 @@ import { createServer as createHttpsServer } from 'node:https';
 import { readFile } from 'node:fs/promises';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHmac, timingSafeEqual, randomBytes } from 'node:crypto';
-import { extname, join, normalize } from 'node:path';
+import { extname, join } from 'node:path';
 import { WebSocketServer } from 'ws';
 import {
   defaultGameState,
@@ -280,6 +280,17 @@ const types = {
   '.ico': 'image/x-icon',
 };
 
+// the folder also holds secrets, game state and score backups, so only these get served
+const publicFiles = new Set([
+  '/video_overlay.html',
+  '/admin.html',
+  '/config.html',
+  '/privacy.html',
+  '/styles.css',
+  '/backend-config.js',
+  ...['main', 'state', 'game', 'bingo', 'labels', 'admin'].map((name) => `/dist/${name}.js`),
+]);
+
 const STATE_FILE = join(root, 'game-state.json');
 
 function loadGame() {
@@ -369,12 +380,12 @@ async function serveFile(req, res) {
     if (urlPath === '/twitch/eventsub' && req.method === 'POST') return handleEventSub(req, res);
     if (urlPath.startsWith('/auth/')) return handleAuth(urlPath, req, res);
     if (urlPath === '/') urlPath = '/video_overlay.html';
-    const filePath = normalize(join(root, urlPath));
-    if (!filePath.startsWith(root)) {
-      res.writeHead(403);
-      res.end('Forbidden');
+    if (!publicFiles.has(urlPath)) {
+      res.writeHead(404);
+      res.end('Not found');
       return;
     }
+    const filePath = join(root, urlPath);
     const data = await readFile(filePath);
     res.writeHead(200, { 'Content-Type': types[extname(filePath)] ?? 'application/octet-stream' });
     res.end(data);
