@@ -33,6 +33,7 @@ const centerSpaceInput = document.getElementById('center-space') as HTMLInputEle
 const centerIsFreeInput = document.getElementById('center-is-free') as HTMLInputElement;
 const freeSpaceCostInput = document.getElementById('free-space-cost') as HTMLInputElement;
 const freeSpaceLimitInput = document.getElementById('free-space-limit') as HTMLInputElement;
+const freeSpaceCooldownInput = document.getElementById('free-space-cooldown') as HTMLInputElement;
 const addSpaceCostInput = document.getElementById('add-space-cost') as HTMLInputElement;
 const addSpaceLimitInput = document.getElementById('add-space-limit') as HTMLInputElement;
 const removeSpaceCostInput = document.getElementById('remove-space-cost') as HTMLInputElement;
@@ -75,6 +76,7 @@ function renderControls(): void {
   centerIsFreeInput.checked = state.centerIsFree;
   freeSpaceCostInput.value = String(state.freeSpaceCost);
   freeSpaceLimitInput.value = String(state.freeSpaceLimit);
+  freeSpaceCooldownInput.value = String(state.freeSpaceCooldown);
   addSpaceCostInput.value = String(state.addSpaceCost);
   addSpaceLimitInput.value = String(state.addSpaceLimit);
   removeSpaceCostInput.value = String(state.removeSpaceCost);
@@ -217,6 +219,7 @@ function savedConfig(from: GameState): BoardConfig {
     centerIsFree: from.centerIsFree,
     freeSpaceCost: from.freeSpaceCost,
     freeSpaceLimit: from.freeSpaceLimit,
+    freeSpaceCooldown: from.freeSpaceCooldown,
     addSpaceCost: from.addSpaceCost,
     addSpaceLimit: from.addSpaceLimit,
     removeSpaceCost: from.removeSpaceCost,
@@ -238,6 +241,7 @@ function formConfig(): BoardConfig {
     centerIsFree: centerIsFreeInput.checked,
     freeSpaceCost: Math.max(0, Number(freeSpaceCostInput.value) || 0),
     freeSpaceLimit: Math.max(0, Number(freeSpaceLimitInput.value) || 0),
+    freeSpaceCooldown: Math.max(0, Number(freeSpaceCooldownInput.value) || 0),
     addSpaceCost: Math.max(0, Number(addSpaceCostInput.value) || 0),
     addSpaceLimit: Math.max(0, Number(addSpaceLimitInput.value) || 0),
     removeSpaceCost: Math.max(0, Number(removeSpaceCostInput.value) || 0),
@@ -258,6 +262,7 @@ function renderSaveButton(): void {
     form.centerIsFree !== state.centerIsFree ||
     form.freeSpaceCost !== state.freeSpaceCost ||
     form.freeSpaceLimit !== state.freeSpaceLimit ||
+    form.freeSpaceCooldown !== state.freeSpaceCooldown ||
     form.addSpaceCost !== state.addSpaceCost ||
     form.addSpaceLimit !== state.addSpaceLimit ||
     form.removeSpaceCost !== state.removeSpaceCost ||
@@ -275,6 +280,7 @@ const configFields = [
   centerIsFreeInput,
   freeSpaceCostInput,
   freeSpaceLimitInput,
+  freeSpaceCooldownInput,
   addSpaceCostInput,
   addSpaceLimitInput,
   removeSpaceCostInput,

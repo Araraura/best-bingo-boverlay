@@ -16,6 +16,7 @@ import {
   verifyBingo,
   uncalledSpaces,
   freeSpacesLeft,
+  freeSpaceCooldownLeft,
   addSpacesLeft,
   removeSpacesLeft,
   checkNewSpace,
@@ -277,6 +278,7 @@ const types = {
   '.json': 'application/json; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.wav': 'audio/wav',
   '.ico': 'image/x-icon',
 };
 
@@ -286,9 +288,11 @@ const publicFiles = new Set([
   '/admin.html',
   '/config.html',
   '/privacy.html',
+  '/alerts.html',
   '/styles.css',
   '/backend-config.js',
-  ...['main', 'state', 'game', 'bingo', 'labels', 'admin'].map((name) => `/dist/${name}.js`),
+  '/assets/snd_won.wav',
+  ...['main', 'state', 'game', 'bingo', 'labels', 'admin', 'alerts'].map((name) => `/dist/${name}.js`),
 ]);
 
 const STATE_FILE = join(root, 'game-state.json');
@@ -526,12 +530,17 @@ async function redeemFreeSpace(event) {
     await refuse(`All ${game.freeSpaceLimit} free spaces for this round have been used.`);
     return;
   }
+  const cooldownLeft = freeSpaceCooldownLeft(game, Date.now());
+  if (cooldownLeft > 0) {
+    await refuse(`Someone just used a free space, try again in ${Math.ceil(cooldownLeft / 1000)}s.`);
+    return;
+  }
   if (!uncalledSpaces(game).includes(staged.space)) {
     await refuse(`"${staged.space}" was already called.`);
     return;
   }
 
-  game = reduce(game, { type: 'useFreeSpace', space: staged.space });
+  game = reduce(game, { type: 'useFreeSpace', space: staged.space, at: Date.now() });
   broadcastState();
   if (socket) sendNotice(socket, 'success', `"${staged.space}" is now called for everyone.`);
   await channelPoints.resolveRedemption(event.id, event.reward.id, 'FULFILLED');
@@ -663,6 +672,11 @@ wss.on('connection', (socket, request) => {
           sendNotice(socket, 'info', `All ${game.freeSpaceLimit} free spaces for this round have been used.`);
           return;
         }
+        const cooldownLeft = freeSpaceCooldownLeft(game, Date.now());
+        if (cooldownLeft > 0) {
+          sendNotice(socket, 'info', `Free Space is on cooldown, try again in ${Math.ceil(cooldownLeft / 1000)}s.`);
+          return;
+        }
         const space = String(msg.space ?? '');
         if (!uncalledSpaces(game).includes(space)) {
           sendNotice(socket, 'error', `"${space}" can't be called right now.`);
@@ -673,7 +687,7 @@ wss.on('connection', (socket, request) => {
           sendNotice(socket, 'info', 'Please redeem "Free Space" now in the Channel Points menu to call your space.');
           return;
         }
-        game = reduce(game, { type: 'useFreeSpace', space });
+        game = reduce(game, { type: 'useFreeSpace', space, at: Date.now() });
         broadcastState();
         break;
       }

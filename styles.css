@@ -46,6 +46,26 @@ body.local {
   background: var(--page-bg);
 }
 
+body.alerts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.alert {
+  margin: 0;
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.alert.shown {
+  opacity: 1;
+}
+
 .left-panel {
   grid-area: left;
   align-self: start;

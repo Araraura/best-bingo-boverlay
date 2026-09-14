@@ -94,6 +94,7 @@ export interface GameState {
   centerIsFree: boolean; // free means it starts marked, otherwise it has to be called
   freeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   freeSpaceLimit: number; // how many free spaces a round allows, prevents point spamming
+  freeSpaceCooldown: number; // seconds between free spaces, shared by everyone
   addSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   addSpaceLimit: number; // how many new spaces a round allows, across everyone
   removeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
@@ -108,6 +109,7 @@ export interface GameState {
   roundWinners: string[];
   scores: Record<string, number>;
   freeSpaces: string[]; // called by the ability, scribes can't take these back
+  lastFreeSpaceAt: number; // timestamp of this round's latest free space, 0 when there's none
   spaceSubmissions: { player: string; space: string; redemptionId: string }[]; // waiting on a scribe
   pendingSpaces: string[]; // approved, they join the space list next round
   removedSpaces: string[]; // they leave the space list next round
@@ -122,6 +124,7 @@ export function defaultGameState(): GameState {
     centerIsFree: true,
     freeSpaceCost: 50,
     freeSpaceLimit: 3,
+    freeSpaceCooldown: 30,
     addSpaceCost: 500,
     addSpaceLimit: 1,
     removeSpaceCost: 500,
@@ -136,6 +139,7 @@ export function defaultGameState(): GameState {
     roundWinners: [],
     scores: {},
     freeSpaces: [],
+    lastFreeSpaceAt: 0,
     spaceSubmissions: [],
     pendingSpaces: [],
     removedSpaces: [],
@@ -162,6 +166,10 @@ export function checkNewSpace(state: GameState, typed: string): { space: string;
 
 export function freeSpacesLeft(state: GameState): number {
   return Math.max(0, state.freeSpaceLimit - state.freeSpaces.length);
+}
+
+export function freeSpaceCooldownLeft(state: GameState, now: number): number {
+  return Math.max(0, state.lastFreeSpaceAt + state.freeSpaceCooldown * 1000 - now);
 }
 
 export function removeSpacesLeft(state: GameState): number {
@@ -213,11 +221,14 @@ export const POINTS_PER_LINE: Record<BoardSize, number> = { 5: 1, 6: 2, 7: 3 };
 // the win announcement everyone sees, empty while a round is underway
 export function roundOverText(state: GameState): string {
   if (!state.roundOver) return '';
-  const win = state.roundWin;
-  if (!win) return 'ROUND OVER! Waiting for the next round.';
+  if (!state.roundWin) return 'ROUND OVER! Waiting for the next round.';
+  return `ROUND OVER! ${winText(state.roundWin)}. Waiting for the next round.`;
+}
+
+export function winText(win: NonNullable<GameState['roundWin']>): string {
   const lineText = `${win.lines} line${win.lines > 1 ? 's' : ''}`;
   const pointText = `${win.points} point${win.points > 1 ? 's' : ''}`;
-  return `ROUND OVER! ${win.player} got a BINGO - ${lineText}, +${pointText}. Waiting for the next round.`;
+  return `${win.player} got a BINGO - ${lineText}, +${pointText}`;
 }
 
 // what scribes can call. a center space that isn't free has to be callable too,
@@ -251,6 +262,7 @@ export type BoardConfig = Pick<
   | 'centerIsFree'
   | 'freeSpaceCost'
   | 'freeSpaceLimit'
+  | 'freeSpaceCooldown'
   | 'addSpaceCost'
   | 'addSpaceLimit'
   | 'removeSpaceCost'
@@ -267,7 +279,7 @@ export type Action =
   | { type: 'awardBingo'; player: string; lines: number }
   | { type: 'resetScores' }
   | { type: 'callAll' }
-  | { type: 'useFreeSpace'; space: string }
+  | { type: 'useFreeSpace'; space: string; at: number }
   | { type: 'submitSpace'; player: string; space: string; redemptionId: string }
   | { type: 'approveSpace'; space: string }
   | { type: 'rejectSpace'; space: string }
@@ -294,6 +306,7 @@ export function reduce(state: GameState, action: Action): GameState {
         roundOver: false,
         roundWin: null,
         freeSpaces: [],
+        lastFreeSpaceAt: 0,
         spaceList: spaceListNextRound(state), // adds and removes land now
         pendingSpaces: [],
         removedSpaces: [],
@@ -320,6 +333,7 @@ export function reduce(state: GameState, action: Action): GameState {
         roundOver: false,
         roundWin: null,
         freeSpaces: [],
+        lastFreeSpaceAt: 0,
       };
     case 'callAll': {
       const uniqueSpaces = callableSpaces(state);
@@ -329,10 +343,12 @@ export function reduce(state: GameState, action: Action): GameState {
     }
     case 'useFreeSpace':
       if (!uncalledSpaces(state).includes(action.space) || freeSpacesLeft(state) === 0) return state;
+      if (freeSpaceCooldownLeft(state, action.at) > 0) return state;
       return {
         ...state,
         calledSpaces: [...state.calledSpaces, action.space],
         freeSpaces: [...state.freeSpaces, action.space],
+        lastFreeSpaceAt: action.at,
       };
     case 'submitSpace':
       if (checkNewSpace(state, action.space).problem || addSpacesLeft(state) === 0) return state;

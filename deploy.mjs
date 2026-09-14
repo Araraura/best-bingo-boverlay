@@ -10,12 +10,13 @@ const serverFiles = [
   'video_overlay.html',
   'config.html',
   'privacy.html',
+  'alerts.html',
   'styles.css',
   'backend-config.js',
   'package.json',
   'package-lock.json',
 ];
-const distFiles = ['main.js', 'state.js', 'game.js', 'bingo.js', 'labels.js', 'admin.js'].map(
+const distFiles = ['main.js', 'state.js', 'game.js', 'bingo.js', 'labels.js', 'admin.js', 'alerts.js'].map(
   (file) => `dist/${file}`,
 );
 
@@ -25,6 +26,8 @@ run('npm run build');
 run('npm run lint');
 run(`scp ${serverFiles.join(' ')} ${HOST}:${DIR}/`);
 run(`scp ${distFiles.join(' ')} ${HOST}:${DIR}/dist/`);
+run(`ssh ${HOST} "mkdir -p ${DIR}/assets"`);
+run(`scp assets/snd_won.wav ${HOST}:${DIR}/assets/`);
 run(
   `ssh ${HOST} "cd ${DIR} && npm install --omit=dev && chown -R boverlay:boverlay ${DIR} && systemctl restart boverlay && sleep 1 && journalctl -u boverlay -n 5 --no-pager"`,
 );

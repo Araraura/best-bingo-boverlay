@@ -7,6 +7,7 @@ import {
   roundOverText,
   uncalledSpaces,
   freeSpacesLeft,
+  freeSpaceCooldownLeft,
   addSpacesLeft,
   removeSpacesLeft,
   removableSpaces,
@@ -161,16 +162,26 @@ function renderCalledList(): void {
   }
 }
 
-function renderFreeSpace(): void {
-  freeSpaceBtn.textContent = `Free Space - ${state.freeSpaceCost} points`;
+// ticks every second, so it leaves the dropdown alone
+function renderFreeSpaceAvailability(): void {
   const left = freeSpacesLeft(state);
   const options = uncalledSpaces(state);
+  const cooldownLeft = freeSpaceCooldownLeft(state, Date.now());
+  const cooldownText = cooldownLeft > 0 && left > 0 ? ` - next one in ${Math.ceil(cooldownLeft / 1000)}s` : '';
   freeSpaceLeftEl.textContent = options.length
-    ? `${left} of ${state.freeSpaceLimit} left this round`
+    ? `${left} of ${state.freeSpaceLimit} left this round${cooldownText}`
     : 'Nothing is left to call';
-  const canUse = !state.roundOver && left > 0 && options.length > 0;
+  const canUse = !state.roundOver && left > 0 && options.length > 0 && cooldownLeft === 0;
   freeSpaceBtn.disabled = !canUse;
   if (!canUse) freeSpaceForm.hidden = true;
+}
+
+window.setInterval(renderFreeSpaceAvailability, 1000);
+
+function renderFreeSpace(): void {
+  freeSpaceBtn.textContent = `Free Space - ${state.freeSpaceCost} points`;
+  renderFreeSpaceAvailability();
+  const options = uncalledSpaces(state);
 
   freeSpacePick.replaceChildren(
     ...options.map((space) => {
