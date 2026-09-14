@@ -162,7 +162,6 @@ function renderCalledList(): void {
   }
 }
 
-// ticks every second, so it leaves the dropdown alone
 function renderFreeSpaceAvailability(): void {
   const left = freeSpacesLeft(state);
   const options = uncalledSpaces(state);
