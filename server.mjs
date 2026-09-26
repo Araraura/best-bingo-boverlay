@@ -547,6 +547,19 @@ async function redeemFreeSpace(event) {
 }
 
 const sendSheet = (socket, sheet) => socket.send(JSON.stringify({ type: 'sheet', sheet }));
+
+// unmark for everyone when a space is recalled
+function unmarkUncalledSpaces() {
+  const called = new Set(game.calledSpaces);
+  for (const [sheetKey, sheet] of sheets) {
+    const stale = sheet.tiles.filter((tile) => tile.marked && !tile.isFree && !called.has(tile.label));
+    if (stale.length === 0) continue;
+    for (const tile of stale) tile.marked = false;
+    for (const client of wss.clients) {
+      if (client.sheetKey === sheetKey && client.readyState === client.OPEN) sendSheet(client, sheet);
+    }
+  }
+}
 const sendNotice = (socket, level, message, cooldownMs) =>
   socket.send(JSON.stringify({ type: 'notice', level, message, cooldownMs }));
 
@@ -584,6 +597,7 @@ wss.on('connection', (socket, request) => {
       case 'callAll':
         game = reduce(game, msg);
         broadcastState();
+        unmarkUncalledSpaces();
         break;
 
       case 'setConfig':
