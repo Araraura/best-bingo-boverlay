@@ -1,6 +1,6 @@
 {
   "name": "best-bingo-boverlay",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "description": "Twitch bingo extension overlay",
   "type": "module",

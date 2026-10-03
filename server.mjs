@@ -21,6 +21,7 @@ import {
   removeSpacesLeft,
   checkNewSpace,
   checkRemoveSpace,
+  renamedSpaces,
 } from './dist/game.js';
 import { generateSheet } from './dist/bingo.js';
 import * as channelPoints from './channel-points.mjs';
@@ -548,6 +549,18 @@ async function redeemFreeSpace(event) {
 
 const sendSheet = (socket, sheet) => socket.send(JSON.stringify({ type: 'sheet', sheet }));
 
+function renameOnSheets(renames) {
+  if (renames.size === 0) return;
+  for (const [sheetKey, sheet] of sheets) {
+    const renamed = sheet.tiles.filter((tile) => !tile.isFree && renames.has(tile.label));
+    if (renamed.length === 0) continue;
+    for (const tile of renamed) tile.label = renames.get(tile.label);
+    for (const client of wss.clients) {
+      if (client.sheetKey === sheetKey && client.readyState === client.OPEN) sendSheet(client, sheet);
+    }
+  }
+}
+
 // unmark for everyone when a space is recalled
 function unmarkUncalledSpaces() {
   const called = new Set(game.calledSpaces);
@@ -600,9 +613,11 @@ wss.on('connection', (socket, request) => {
         unmarkUncalledSpaces();
         break;
 
-      case 'setConfig':
+      case 'setConfig': {
+        const renames = renamedSpaces(game.spaceList, msg.changes?.spaceList ?? game.spaceList);
         game = reduce(game, msg);
         broadcastState();
+        renameOnSheets(renames);
         channelPoints
           .syncCosts(abilityCosts())
           .then((changed) => {
@@ -610,6 +625,7 @@ wss.on('connection', (socket, request) => {
           })
           .catch((error) => sendNotice(socket, 'error', `Could not update the Twitch prices: ${error.message}`));
         break;
+      }
 
       case 'approveSpace':
       case 'rejectSpace': {

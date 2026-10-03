@@ -176,6 +176,17 @@ export function removeSpacesLeft(state: GameState): number {
   return Math.max(0, state.removeSpaceLimit - state.removedSpaces.length);
 }
 
+// a line edited in place counts as a rename, so the round keeps going under the new name
+export function renamedSpaces(before: string[], after: string[]): Map<string, string> {
+  const renames = new Map<string, string>();
+  if (before.length !== after.length) return renames;
+  before.forEach((oldName, position) => {
+    const newName = after[position];
+    if (oldName !== newName && !after.includes(oldName) && !before.includes(newName)) renames.set(oldName, newName);
+  });
+  return renames;
+}
+
 // what the space list looks like once the next round applies the adds and removes
 export function spaceListNextRound(state: GameState): string[] {
   const leaving = new Set(state.removedSpaces);
@@ -287,8 +298,19 @@ export type Action =
 
 export function reduce(state: GameState, action: Action): GameState {
   switch (action.type) {
-    case 'setConfig':
-      return { ...state, ...action.changes };
+    case 'setConfig': {
+      const next = { ...state, ...action.changes };
+      const renames = renamedSpaces(state.spaceList, next.spaceList);
+      if (renames.size === 0) return next;
+      const rename = (space: string) => renames.get(space) ?? space;
+      return {
+        ...next,
+        calledSpaces: next.calledSpaces.map(rename),
+        freeSpaces: next.freeSpaces.map(rename),
+        protectedSpaces: next.protectedSpaces.map(rename),
+        removedSpaces: next.removedSpaces.map(rename),
+      };
+    }
     case 'toggleCalled': {
       if (state.freeSpaces.includes(action.label)) return state;
       const called = new Set(state.calledSpaces);
