@@ -3,6 +3,7 @@
   --line: #e6e6e6;
   --fill: 0, 0, 0;
   --page-bg: #0d0d0d;
+  --called: #e8c547;
   --panel-alpha: 0.85;
 }
 
@@ -11,6 +12,7 @@
   --line: #141414;
   --fill: 255, 255, 255;
   --page-bg: #ededed;
+  --called: #b8860b;
 }
 
 * {
@@ -195,7 +197,7 @@ a {
 }
 
 .tile.called {
-  border: 4px solid #e8c547;
+  border: 4px solid var(--called);
 }
 
 .tile.marked {
