@@ -240,7 +240,7 @@ textarea {
 
 .display-settings {
   position: fixed;
-  top: 6px;
+  bottom: 6px;
   right: 6px;
   display: flex;
   gap: 8px;
