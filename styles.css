@@ -195,7 +195,7 @@ a {
 }
 
 .tile.called {
-  border: 2px solid var(--green);
+  border: 4px solid #e8c547;
 }
 
 .tile.marked {
