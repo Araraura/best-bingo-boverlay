@@ -291,6 +291,7 @@ const publicFiles = new Set([
   '/privacy.html',
   '/alerts.html',
   '/styles.css',
+  '/package.json',
   '/backend-config.js',
   '/assets/snd_won.wav',
   '/assets/snd_ability.wav',

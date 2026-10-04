@@ -17,7 +17,7 @@ mkdirSync(out, { recursive: true });
 const overlay = readFileSync('video_overlay.html', 'utf8').replace('dist/main.js', 'main.js');
 writeFileSync(join(out, 'video_overlay.html'), overlay);
 writeFileSync(join(out, 'backend-config.js'), `window.BOVERLAY_BACKEND = '${backend}';\n`);
-for (const file of ['config.html', 'styles.css']) {
+for (const file of ['config.html', 'styles.css', 'package.json']) {
   copyFileSync(file, join(out, file));
 }
 for (const file of ['main.js', 'state.js', 'game.js', 'bingo.js', 'labels.js']) {

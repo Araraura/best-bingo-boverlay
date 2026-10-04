@@ -66,6 +66,7 @@ const removeSpaceMessage = document.getElementById('remove-space-message') as HT
 const removeSpaceLeftEl = document.getElementById('remove-space-left') as HTMLParagraphElement;
 
 const sideToggle = document.getElementById('side-toggle') as HTMLButtonElement;
+const versionEl = document.getElementById('version') as HTMLParagraphElement;
 const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
 
@@ -508,6 +509,12 @@ if (window.self === window.top) {
   }, 1000);
 }
 
+fetch('package.json')
+  .then((response) => response.json())
+  .then((packageInfo: { version: string }) => {
+    versionEl.textContent = `Best Bingo (B)overlay v${packageInfo.version}`;
+  })
+  .catch(() => undefined);
 applyDisplaySettings();
 renderGameName();
 renderCalledList();
