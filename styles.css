@@ -26,10 +26,12 @@ body {
   color: var(--green);
   background: transparent;
   display: grid;
-  grid-template-columns: 240px minmax(0, 780px) 240px;
-  grid-template-areas: 'left center right';
-  justify-content: center;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 780px) minmax(252px, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    '. center leaderboard'
+    '. center abilities';
+  row-gap: 12px;
 }
 
 body.admin {
@@ -68,9 +70,28 @@ body.alerts {
   opacity: 1;
 }
 
-.left-panel {
-  grid-area: left;
-  align-self: start;
+#side-toggle {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+
+body.side-hidden {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 780px) minmax(0, 1fr);
+}
+
+body.side-hidden .leaderboard-panel,
+body.side-hidden .abilities-panel {
+  display: none;
+}
+
+.leaderboard-panel,
+.abilities-panel {
+  width: 240px;
+  margin-left: 12px;
+}
+
+.leaderboard-panel {
+  grid-area: leaderboard;
 }
 
 .center-panel {
@@ -78,12 +99,13 @@ body.alerts {
   min-width: 0;
 }
 
-.right-panel {
-  grid-area: right;
+.abilities-panel {
+  grid-area: abilities;
+  align-self: start;
   min-width: 0;
 }
 
-.right-panel select {
+.abilities-panel select {
   width: 100%;
 }
 
@@ -148,7 +170,7 @@ a {
 
 #call-bingo {
   display: block;
-  margin: 0 auto 8px;
+  margin: 32px auto 8px;
   font-size: 1.3rem;
   font-weight: bold;
   padding: 8px 28px;
@@ -293,9 +315,17 @@ input[type='range'] {
 }
 
 @media (max-width: 640px) {
-  body {
+  body,
+  body.side-hidden {
     grid-template-columns: 1fr;
-    grid-template-areas: 'center' 'left' 'right';
+    grid-template-rows: auto;
+    grid-template-areas: 'center' 'leaderboard' 'abilities';
+  }
+
+  .leaderboard-panel,
+  .abilities-panel {
+    width: auto;
+    margin-left: 0;
   }
 
   .display-settings {

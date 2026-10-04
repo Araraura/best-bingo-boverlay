@@ -1,1 +1,0 @@
-window.BOVERLAY_BACKEND = '';

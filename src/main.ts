@@ -32,7 +32,6 @@ import { appendLabelWithBreaks } from './labels.js';
 
 const nameInput = document.getElementById('player-name') as HTMLInputElement;
 const nameLabelEl = document.getElementById('player-name-label') as HTMLLabelElement;
-const adminLinkEl = document.getElementById('admin-link') as HTMLAnchorElement;
 const joinBtn = document.getElementById('join') as HTMLButtonElement;
 const gameNameEl = document.getElementById('game-name') as HTMLParagraphElement;
 const messageEl = document.getElementById('message') as HTMLParagraphElement;
@@ -66,6 +65,7 @@ const removeSpaceCancel = document.getElementById('remove-space-cancel') as HTML
 const removeSpaceMessage = document.getElementById('remove-space-message') as HTMLParagraphElement;
 const removeSpaceLeftEl = document.getElementById('remove-space-left') as HTMLParagraphElement;
 
+const sideToggle = document.getElementById('side-toggle') as HTMLButtonElement;
 const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
 
@@ -284,7 +284,7 @@ onNotice((notice) => {
 });
 
 subscribe((next) => {
-  const roundChanged = next.roundId !== lastRoundId;
+  const roundChanged = next.roundId !== lastRoundId || (state.roundOver && !next.roundOver);
   state = next;
   lastRoundId = next.roundId;
   renderGameName();
@@ -461,7 +461,6 @@ if (twitchExt) {
     twitchToken = auth.token;
     document.body.classList.remove('local');
     nameLabelEl.hidden = true;
-    adminLinkEl.hidden = true;
     if (!twitchExt.viewer.isLinked) {
       joinBtn.textContent = 'Share Twitch identity to play';
       return;
@@ -477,6 +476,9 @@ function applyDisplaySettings(): void {
   document.documentElement.dataset.mode = mode;
   document.documentElement.style.setProperty('--panel-alpha', String(alpha / 100));
   modeToggle.textContent = `Mode: ${mode}`;
+  const sideHidden = localStorage.getItem('boverlay.sideHidden') === 'true';
+  document.body.classList.toggle('side-hidden', sideHidden);
+  sideToggle.textContent = sideHidden ? 'Show panels' : 'Hide panels';
   alphaSlider.value = String(alpha);
 }
 
@@ -484,6 +486,13 @@ modeToggle.addEventListener('click', () => {
   const current = localStorage.getItem('boverlay.mode') ?? 'dark';
   localStorage.setItem('boverlay.mode', current === 'dark' ? 'light' : 'dark');
   applyDisplaySettings();
+});
+
+sideToggle.addEventListener('click', () => {
+  const sideHidden = localStorage.getItem('boverlay.sideHidden') === 'true';
+  localStorage.setItem('boverlay.sideHidden', String(!sideHidden));
+  applyDisplaySettings();
+  fitAllLabels();
 });
 
 alphaSlider.addEventListener('input', () => {

@@ -10,7 +10,7 @@
     <script type="module" src="dist/main.js"></script>
   </head>
   <body>
-    <aside class="left-panel panel">
+    <aside class="leaderboard-panel panel">
       <h2>Leaderboard</h2>
       <ol id="scoreboard"></ol>
     </aside>
@@ -19,7 +19,7 @@
       <section class="controls">
         <label id="player-name-label">Your name <input id="player-name" type="text" autocomplete="off" /></label>
         <button id="join" type="button">Join</button>
-        <a id="admin-link" href="admin.html">Admin view</a>
+        <button id="side-toggle" type="button">Hide panels</button>
       </section>
 
       <button id="call-bingo" type="button">Call Bingo</button>
@@ -35,7 +35,7 @@
       </section>
     </main>
 
-    <aside class="right-panel panel">
+    <aside class="abilities-panel panel">
       <h2>Abilities</h2>
       <button id="free-space" type="button"></button>
       <p id="free-space-left"></p>
