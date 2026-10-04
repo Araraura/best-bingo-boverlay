@@ -295,6 +295,7 @@ const publicFiles = new Set([
   '/backend-config.js',
   '/assets/snd_won.wav',
   '/assets/snd_ability.wav',
+  '/assets/snd_called.wav',
   ...['main', 'state', 'game', 'bingo', 'labels', 'admin', 'alerts'].map((name) => `/dist/${name}.js`),
 ]);
 

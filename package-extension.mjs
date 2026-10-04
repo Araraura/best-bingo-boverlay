@@ -23,6 +23,8 @@ for (const file of ['config.html', 'styles.css', 'package.json']) {
 for (const file of ['main.js', 'state.js', 'game.js', 'bingo.js', 'labels.js']) {
   copyFileSync(join('dist', file), join(out, file));
 }
+mkdirSync(join(out, 'assets'));
+copyFileSync('assets/snd_called.wav', join(out, 'assets', 'snd_called.wav'));
 
 execSync(`powershell -NoProfile -Command "Compress-Archive -Path '${out}/*' -DestinationPath 'extension.zip' -Force"`, {
   stdio: 'inherit',

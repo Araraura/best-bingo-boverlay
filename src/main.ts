@@ -68,8 +68,11 @@ const removeSpaceLeftEl = document.getElementById('remove-space-left') as HTMLPa
 
 const sideToggle = document.getElementById('side-toggle') as HTMLButtonElement;
 const versionEl = document.getElementById('version') as HTMLParagraphElement;
+const soundToggle = document.getElementById('sound-toggle') as HTMLButtonElement;
 const modeToggle = document.getElementById('mode-toggle') as HTMLButtonElement;
 const alphaSlider = document.getElementById('alpha-slider') as HTMLInputElement;
+
+const calledSound = new Audio('assets/snd_called.wav');
 
 const twitchExt = window.Twitch?.ext;
 
@@ -294,6 +297,13 @@ onNotice((notice) => {
 
 subscribe((next) => {
   const roundChanged = next.roundId !== lastRoundId || (state.roundOver && !next.roundOver);
+  const calledByScribe = next.calledSpaces.some(
+    (space) => !state.calledSpaces.includes(space) && !next.freeSpaces.includes(space),
+  );
+  if (calledByScribe && !roundChanged && soundIsOn()) {
+    calledSound.currentTime = 0;
+    calledSound.play().catch(() => undefined);
+  }
   state = next;
   lastRoundId = next.roundId;
   renderGameName();
@@ -479,17 +489,27 @@ if (twitchExt) {
   });
 }
 
+function soundIsOn(): boolean {
+  return localStorage.getItem('boverlay.sound') === 'on';
+}
+
 function applyDisplaySettings(): void {
   const mode = localStorage.getItem('boverlay.mode') ?? 'dark';
   const alpha = Number(localStorage.getItem('boverlay.alpha') ?? '85');
   document.documentElement.dataset.mode = mode;
   document.documentElement.style.setProperty('--panel-alpha', String(alpha / 100));
   modeToggle.textContent = `Mode: ${mode}`;
+  soundToggle.textContent = `Sound: ${soundIsOn() ? 'on' : 'off'}`;
   const sideHidden = localStorage.getItem('boverlay.sideHidden') === 'true';
   document.body.classList.toggle('side-hidden', sideHidden);
   sideToggle.textContent = sideHidden ? 'Show panels' : 'Hide panels';
   alphaSlider.value = String(alpha);
 }
+
+soundToggle.addEventListener('click', () => {
+  localStorage.setItem('boverlay.sound', soundIsOn() ? 'off' : 'on');
+  applyDisplaySettings();
+});
 
 modeToggle.addEventListener('click', () => {
   const current = localStorage.getItem('boverlay.mode') ?? 'dark';
