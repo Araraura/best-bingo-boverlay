@@ -293,6 +293,7 @@ const publicFiles = new Set([
   '/styles.css',
   '/backend-config.js',
   '/assets/snd_won.wav',
+  '/assets/snd_ability.wav',
   ...['main', 'state', 'game', 'bingo', 'labels', 'admin', 'alerts'].map((name) => `/dist/${name}.js`),
 ]);
 
@@ -421,6 +422,14 @@ function broadcastState() {
   }
 }
 
+// shows on the obs alerts page
+function sendAlert(text) {
+  const payload = JSON.stringify({ type: 'alert', text });
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN) client.send(payload);
+  }
+}
+
 // a viewer picks their space in the overlay, then pays for it in twitch's channel points menu.
 // holds the pick until the redemption turns up.
 const stagedFreeSpaces = new Map();
@@ -475,6 +484,7 @@ async function redeemRemoval(event) {
 
   game = reduce(game, { type: 'removeSpace', space: staged.space });
   broadcastState();
+  if (game.alertRemoveSpace) sendAlert(`${event.user_name} removed the "${staged.space}" space`);
   if (socket) sendNotice(socket, 'success', `"${staged.space}" leaves the list next round.`);
   await channelPoints.resolveRedemption(event.id, event.reward.id, 'FULFILLED');
 }
@@ -543,6 +553,7 @@ async function redeemFreeSpace(event) {
 
   game = reduce(game, { type: 'useFreeSpace', space: staged.space, at: Date.now() });
   broadcastState();
+  if (game.alertFreeSpace) sendAlert(`${event.user_name} used a Free Space on "${staged.space}"`);
   if (socket) sendNotice(socket, 'success', `"${staged.space}" is now called for everyone.`);
   await channelPoints.resolveRedemption(event.id, event.reward.id, 'FULFILLED');
 }
@@ -632,6 +643,9 @@ wss.on('connection', (socket, request) => {
         const submission = game.spaceSubmissions.find((pending) => pending.space === msg.space);
         game = reduce(game, msg);
         broadcastState();
+        if (submission && msg.type === 'approveSpace' && game.alertAddSpace) {
+          sendAlert(`${submission.player} added the "${submission.space}" space`);
+        }
         if (!submission?.redemptionId) break;
         // approving spends the points, rejecting hands them back
         const status = msg.type === 'approveSpace' ? 'FULFILLED' : 'CANCELED';
@@ -719,6 +733,7 @@ wss.on('connection', (socket, request) => {
         }
         game = reduce(game, { type: 'useFreeSpace', space, at: Date.now() });
         broadcastState();
+        if (game.alertFreeSpace) sendAlert(`${name} used a Free Space on "${space}"`);
         break;
       }
 
@@ -745,6 +760,7 @@ wss.on('connection', (socket, request) => {
         }
         game = reduce(game, { type: 'removeSpace', space });
         broadcastState();
+        if (game.alertRemoveSpace) sendAlert(`${name} removed the "${space}" space`);
         break;
       }
 

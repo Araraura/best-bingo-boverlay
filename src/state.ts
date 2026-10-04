@@ -19,16 +19,19 @@ type ServerMessage =
   | ({ type: 'hello' } & Hello)
   | { type: 'state'; game: GameState }
   | { type: 'sheet'; sheet: Sheet }
-  | ({ type: 'notice' } & Notice);
+  | ({ type: 'notice' } & Notice)
+  | { type: 'alert'; text: string };
 
 type StateListener = (state: GameState) => void;
 type SheetListener = (sheet: Sheet) => void;
 type NoticeListener = (notice: Notice) => void;
+type AlertListener = (text: string) => void;
 type HelloListener = (hello: Hello) => void;
 
 const stateListeners = new Set<StateListener>();
 const sheetListeners = new Set<SheetListener>();
 const noticeListeners = new Set<NoticeListener>();
+const alertListeners = new Set<AlertListener>();
 const helloListeners = new Set<HelloListener>();
 let current: GameState = defaultGameState();
 let lastHello: Hello | null = null;
@@ -69,6 +72,8 @@ function connect(): void {
       for (const listener of sheetListeners) listener(message.sheet);
     } else if (message.type === 'notice') {
       for (const listener of noticeListeners) listener(message);
+    } else if (message.type === 'alert') {
+      for (const listener of alertListeners) listener(message.text);
     } else if (message.type === 'hello') {
       lastHello = { scribe: message.scribe, twitch: message.twitch };
       for (const listener of helloListeners) listener(lastHello);
@@ -102,6 +107,11 @@ export function onSheet(listener: SheetListener): () => void {
 export function onNotice(listener: NoticeListener): () => void {
   noticeListeners.add(listener);
   return () => noticeListeners.delete(listener);
+}
+
+export function onAlert(listener: AlertListener): () => void {
+  alertListeners.add(listener);
+  return () => alertListeners.delete(listener);
 }
 
 export function onHello(listener: HelloListener): () => void {

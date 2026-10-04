@@ -34,6 +34,9 @@ const centerIsFreeInput = document.getElementById('center-is-free') as HTMLInput
 const freeSpaceCostInput = document.getElementById('free-space-cost') as HTMLInputElement;
 const freeSpaceLimitInput = document.getElementById('free-space-limit') as HTMLInputElement;
 const freeSpaceCooldownInput = document.getElementById('free-space-cooldown') as HTMLInputElement;
+const alertFreeSpaceInput = document.getElementById('alert-free-space') as HTMLInputElement;
+const alertAddSpaceInput = document.getElementById('alert-add-space') as HTMLInputElement;
+const alertRemoveSpaceInput = document.getElementById('alert-remove-space') as HTMLInputElement;
 const addSpaceCostInput = document.getElementById('add-space-cost') as HTMLInputElement;
 const addSpaceLimitInput = document.getElementById('add-space-limit') as HTMLInputElement;
 const removeSpaceCostInput = document.getElementById('remove-space-cost') as HTMLInputElement;
@@ -77,6 +80,9 @@ function renderControls(): void {
   freeSpaceCostInput.value = String(state.freeSpaceCost);
   freeSpaceLimitInput.value = String(state.freeSpaceLimit);
   freeSpaceCooldownInput.value = String(state.freeSpaceCooldown);
+  alertFreeSpaceInput.checked = state.alertFreeSpace;
+  alertAddSpaceInput.checked = state.alertAddSpace;
+  alertRemoveSpaceInput.checked = state.alertRemoveSpace;
   addSpaceCostInput.value = String(state.addSpaceCost);
   addSpaceLimitInput.value = String(state.addSpaceLimit);
   removeSpaceCostInput.value = String(state.removeSpaceCost);
@@ -220,6 +226,9 @@ function savedConfig(from: GameState): BoardConfig {
     freeSpaceCost: from.freeSpaceCost,
     freeSpaceLimit: from.freeSpaceLimit,
     freeSpaceCooldown: from.freeSpaceCooldown,
+    alertFreeSpace: from.alertFreeSpace,
+    alertAddSpace: from.alertAddSpace,
+    alertRemoveSpace: from.alertRemoveSpace,
     addSpaceCost: from.addSpaceCost,
     addSpaceLimit: from.addSpaceLimit,
     removeSpaceCost: from.removeSpaceCost,
@@ -242,6 +251,9 @@ function formConfig(): BoardConfig {
     freeSpaceCost: Math.max(0, Number(freeSpaceCostInput.value) || 0),
     freeSpaceLimit: Math.max(0, Number(freeSpaceLimitInput.value) || 0),
     freeSpaceCooldown: Math.max(0, Number(freeSpaceCooldownInput.value) || 0),
+    alertFreeSpace: alertFreeSpaceInput.checked,
+    alertAddSpace: alertAddSpaceInput.checked,
+    alertRemoveSpace: alertRemoveSpaceInput.checked,
     addSpaceCost: Math.max(0, Number(addSpaceCostInput.value) || 0),
     addSpaceLimit: Math.max(0, Number(addSpaceLimitInput.value) || 0),
     removeSpaceCost: Math.max(0, Number(removeSpaceCostInput.value) || 0),
@@ -263,6 +275,9 @@ function renderSaveButton(): void {
     form.freeSpaceCost !== state.freeSpaceCost ||
     form.freeSpaceLimit !== state.freeSpaceLimit ||
     form.freeSpaceCooldown !== state.freeSpaceCooldown ||
+    form.alertFreeSpace !== state.alertFreeSpace ||
+    form.alertAddSpace !== state.alertAddSpace ||
+    form.alertRemoveSpace !== state.alertRemoveSpace ||
     form.addSpaceCost !== state.addSpaceCost ||
     form.addSpaceLimit !== state.addSpaceLimit ||
     form.removeSpaceCost !== state.removeSpaceCost ||
@@ -281,6 +296,9 @@ const configFields = [
   freeSpaceCostInput,
   freeSpaceLimitInput,
   freeSpaceCooldownInput,
+  alertFreeSpaceInput,
+  alertAddSpaceInput,
+  alertRemoveSpaceInput,
   addSpaceCostInput,
   addSpaceLimitInput,
   removeSpaceCostInput,

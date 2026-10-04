@@ -95,6 +95,9 @@ export interface GameState {
   freeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   freeSpaceLimit: number; // how many free spaces a round allows, prevents point spamming
   freeSpaceCooldown: number; // seconds between free spaces, shared by everyone
+  alertFreeSpace: boolean; // these three toggle stream alerts
+  alertAddSpace: boolean;
+  alertRemoveSpace: boolean;
   addSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
   addSpaceLimit: number; // how many new spaces a round allows, across everyone
   removeSpaceCost: number; // shown on the button, the real cost lives on the twitch reward
@@ -125,6 +128,9 @@ export function defaultGameState(): GameState {
     freeSpaceCost: 50,
     freeSpaceLimit: 3,
     freeSpaceCooldown: 30,
+    alertFreeSpace: true,
+    alertAddSpace: true,
+    alertRemoveSpace: true,
     addSpaceCost: 500,
     addSpaceLimit: 1,
     removeSpaceCost: 500,
@@ -274,6 +280,9 @@ export type BoardConfig = Pick<
   | 'freeSpaceCost'
   | 'freeSpaceLimit'
   | 'freeSpaceCooldown'
+  | 'alertFreeSpace'
+  | 'alertAddSpace'
+  | 'alertRemoveSpace'
   | 'addSpaceCost'
   | 'addSpaceLimit'
   | 'removeSpaceCost'
