@@ -182,6 +182,10 @@ a {
   margin: 0.25rem 0;
 }
 
+.cooldown {
+  color: #ff5b5b;
+}
+
 .error {
   color: #ff5b5b;
   min-height: 1.2em;

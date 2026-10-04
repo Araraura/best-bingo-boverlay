@@ -48,6 +48,7 @@ const freeSpaceSubmit = document.getElementById('free-space-submit') as HTMLButt
 const freeSpaceCancel = document.getElementById('free-space-cancel') as HTMLButtonElement;
 const freeSpaceMessage = document.getElementById('free-space-message') as HTMLParagraphElement;
 const freeSpaceLeftEl = document.getElementById('free-space-left') as HTMLParagraphElement;
+const freeSpaceCooldownEl = document.getElementById('free-space-cooldown') as HTMLParagraphElement;
 
 const addSpaceBtn = document.getElementById('add-space') as HTMLButtonElement;
 const addSpaceForm = document.getElementById('add-space-form') as HTMLDivElement;
@@ -163,14 +164,21 @@ function renderCalledList(): void {
   }
 }
 
+function minutesAndSeconds(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${Math.floor(totalSeconds / 60)}:${seconds}`;
+}
+
 function renderFreeSpaceAvailability(): void {
   const left = freeSpacesLeft(state);
   const options = uncalledSpaces(state);
   const cooldownLeft = freeSpaceCooldownLeft(state, Date.now());
-  const cooldownText = cooldownLeft > 0 && left > 0 ? ` - next one in ${Math.ceil(cooldownLeft / 1000)}s` : '';
   freeSpaceLeftEl.textContent = options.length
-    ? `${left} of ${state.freeSpaceLimit} left this round${cooldownText}`
+    ? `${left} of ${state.freeSpaceLimit} left this round`
     : 'Nothing is left to call';
+  freeSpaceCooldownEl.hidden = cooldownLeft === 0 || left === 0;
+  freeSpaceCooldownEl.textContent = `Cooldown: ${minutesAndSeconds(cooldownLeft)}`;
   const canUse = !state.roundOver && left > 0 && options.length > 0 && cooldownLeft === 0;
   freeSpaceBtn.disabled = !canUse;
   if (!canUse) freeSpaceForm.hidden = true;
