@@ -116,6 +116,7 @@ function parseCookies(header) {
   return cookies;
 }
 
+// the scribe's twitch user id
 function scribeFromCookies(header) {
   if (!twitchConfig) return 'dev';
   const raw = parseCookies(header).scribe;
@@ -125,7 +126,12 @@ function scribeFromCookies(header) {
   const expected = signSession(userId, expires);
   const given = Buffer.from(signature);
   if (given.length !== Buffer.from(expected).length || !timingSafeEqual(given, Buffer.from(expected))) return null;
-  return scribeIds.get(userId) ?? null;
+  return scribeIds.has(userId) ? userId : null;
+}
+
+function isStreamer(scribeId) {
+  if (!twitchConfig) return true;
+  return Boolean(scribeId) && scribeId === channelPoints.linkedUserId();
 }
 
 async function handleAuth(urlPath, req, res) {
@@ -589,9 +595,23 @@ function unmarkUncalledSpaces() {
 const sendNotice = (socket, level, message, cooldownMs) =>
   socket.send(JSON.stringify({ type: 'notice', level, message, cooldownMs }));
 
+// the scribe list only available to streamer
+function sendHello(socket) {
+  const streamer = isStreamer(socket.scribeId);
+  const scribes = streamer ? [...scribeIds].map(([id, name]) => ({ id, name, isStreamer: isStreamer(id) })) : [];
+  const scribe = Boolean(socket.scribeId);
+  socket.send(JSON.stringify({ type: 'hello', scribe, twitch: Boolean(twitchConfig), streamer, scribes }));
+}
+
+function sendHelloToStreamer() {
+  for (const client of wss.clients) {
+    if (client.readyState === client.OPEN && isStreamer(client.scribeId)) sendHello(client);
+  }
+}
+
 wss.on('connection', (socket, request) => {
-  socket.scribeLogin = scribeFromCookies(request.headers.cookie);
-  socket.send(JSON.stringify({ type: 'hello', scribe: Boolean(socket.scribeLogin), twitch: Boolean(twitchConfig) }));
+  socket.scribeId = scribeFromCookies(request.headers.cookie);
+  sendHello(socket);
   socket.send(JSON.stringify({ type: 'state', game }));
 
   socket.on('message', async (raw) => {
@@ -609,10 +629,11 @@ wss.on('connection', (socket, request) => {
       'callAll',
       'startNewRound',
       'addScribe',
+      'removeScribe',
       'approveSpace',
       'rejectSpace',
     ];
-    if (scribeActions.includes(msg.type) && !socket.scribeLogin) {
+    if (scribeActions.includes(msg.type) && !socket.scribeId) {
       sendNotice(socket, 'error', 'Scribes only.');
       return;
     }
@@ -677,6 +698,10 @@ wss.on('connection', (socket, request) => {
       case 'addScribe': {
         const name = String(msg.name ?? '').trim();
         if (!name) return;
+        if (!isStreamer(socket.scribeId)) {
+          sendNotice(socket, 'error', 'Only the streamer can add scribes.');
+          return;
+        }
         if (!twitchConfig) {
           sendNotice(socket, 'error', 'Adding scribes only works in twitch mode.');
           return;
@@ -697,9 +722,32 @@ wss.on('connection', (socket, request) => {
           writeFileSync(SCRIBES_FILE, JSON.stringify(entries, null, 2) + '\n');
           scribeIds.set(user.id, user.display_name);
           sendNotice(socket, 'success', `${user.display_name} is now a scribe.`);
+          sendHelloToStreamer();
         } catch {
           sendNotice(socket, 'error', 'Could not look up that username, try again.');
         }
+        break;
+      }
+
+      case 'removeScribe': {
+        const scribeId = String(msg.id ?? '');
+        if (!isStreamer(socket.scribeId)) {
+          sendNotice(socket, 'error', 'Only the streamer can remove scribes.');
+          return;
+        }
+        if (isStreamer(scribeId) || !scribeIds.has(scribeId)) return;
+        const name = scribeIds.get(scribeId);
+        const entries = loadScribeEntries().filter((entry) => String(entry.id) !== scribeId);
+        writeFileSync(SCRIBES_FILE, JSON.stringify(entries, null, 2) + '\n');
+        scribeIds.delete(scribeId);
+        // dashboard access immediately lost
+        for (const client of wss.clients) {
+          if (client.scribeId !== scribeId) continue;
+          client.scribeId = null;
+          if (client.readyState === client.OPEN) sendHello(client);
+        }
+        sendNotice(socket, 'success', `${name} is no longer a scribe.`);
+        sendHelloToStreamer();
         break;
       }
 

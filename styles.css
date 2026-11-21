@@ -159,6 +159,14 @@ button:hover {
   border-color: var(--green);
 }
 
+#copy-message {
+  font-weight: normal;
+}
+
+#scribes td {
+  padding: 2px 8px 2px 0;
+}
+
 #reset-scores {
   color: #fff;
   background: #c0392b;

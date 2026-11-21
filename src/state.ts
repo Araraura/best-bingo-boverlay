@@ -10,9 +10,17 @@ export interface Notice {
   cooldownMs?: number;
 }
 
+export interface Scribe {
+  id: string;
+  name: string;
+  isStreamer: boolean;
+}
+
 export interface Hello {
   scribe: boolean;
   twitch: boolean;
+  streamer: boolean;
+  scribes: Scribe[]; // only filled in for the streamer
 }
 
 type ServerMessage =
@@ -42,6 +50,7 @@ type Outgoing =
   | { type: 'mark'; cellIndex: number }
   | { type: 'claimBingo' }
   | { type: 'addScribe'; name: string }
+  | { type: 'removeScribe'; id: string }
   | { type: 'useFreeSpace'; space: string }
   | { type: 'submitSpace'; space: string } // the server fills in who sent it
   | { type: 'removeSpace'; space: string };
@@ -75,7 +84,12 @@ function connect(): void {
     } else if (message.type === 'alert') {
       for (const listener of alertListeners) listener(message.text);
     } else if (message.type === 'hello') {
-      lastHello = { scribe: message.scribe, twitch: message.twitch };
+      lastHello = {
+        scribe: message.scribe,
+        twitch: message.twitch,
+        streamer: Boolean(message.streamer),
+        scribes: message.scribes ?? [],
+      };
       for (const listener of helloListeners) listener(lastHello);
     }
   });
@@ -138,6 +152,9 @@ export function callAll(): void {
 }
 export function addScribe(name: string): void {
   send({ type: 'addScribe', name });
+}
+export function removeScribe(id: string): void {
+  send({ type: 'removeScribe', id });
 }
 export function approveSpace(space: string): void {
   send({ type: 'approveSpace', space });

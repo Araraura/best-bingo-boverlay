@@ -21,6 +21,7 @@ import {
   resetScores,
   callAll,
   addScribe,
+  removeScribe,
   approveSpace,
   rejectSpace,
 } from './state.js';
@@ -52,6 +53,10 @@ const roundInfoEl = document.getElementById('round-info') as HTMLParagraphElemen
 const callListEl = document.getElementById('call-list') as HTMLDivElement;
 const scoreboardEl = document.getElementById('scoreboard') as HTMLOListElement;
 const resetScoresBtn = document.getElementById('reset-scores') as HTMLButtonElement;
+const copyEntriesBtn = document.getElementById('copy-entries') as HTMLButtonElement;
+const copyMessageEl = document.getElementById('copy-message') as HTMLSpanElement;
+const scribesEl = document.getElementById('scribes') as HTMLElement;
+const scribeListEl = document.getElementById('scribe-list') as HTMLTableSectionElement;
 const callAllBtn = document.getElementById('call-all') as HTMLButtonElement;
 const scribeUiEl = document.getElementById('scribe-ui') as HTMLElement;
 const loginNoteEl = document.getElementById('login-note') as HTMLParagraphElement;
@@ -312,9 +317,39 @@ for (const field of configFields) {
 
 saveBtn.addEventListener('click', () => setConfig(formConfig()));
 
-onHello(({ scribe }) => {
+onHello(({ scribe, streamer, scribes }) => {
   scribeUiEl.hidden = !scribe;
   loginNoteEl.hidden = scribe;
+
+  scribesEl.hidden = !streamer;
+  scribeListEl.replaceChildren();
+  for (const listed of scribes) {
+    const row = scribeListEl.insertRow();
+    row.insertCell().textContent = listed.name;
+    const actionCell = row.insertCell();
+    if (listed.isStreamer) {
+      actionCell.textContent = 'Streamer';
+      continue;
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => {
+      if (window.confirm(`Remove ${listed.name} as a scribe?`)) removeScribe(listed.id);
+    });
+    actionCell.appendChild(remove);
+  }
+});
+
+copyEntriesBtn.addEventListener('click', async () => {
+  const ranked = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
+  const lines = ranked.map(([player, points]) => `${player} - ${points}`);
+  try {
+    await navigator.clipboard.writeText(lines.join('\n'));
+    copyMessageEl.textContent = 'Copied.';
+  } catch {
+    copyMessageEl.textContent = 'Failed to copy leaderboard.';
+  }
 });
 
 newRoundBtn.addEventListener('click', () => startNewRound());

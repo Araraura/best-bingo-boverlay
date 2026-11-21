@@ -62,6 +62,10 @@ export function linkedLogin() {
   return broadcaster?.login ?? '';
 }
 
+export function linkedUserId() {
+  return broadcaster?.userId ?? '';
+}
+
 export function authUrl(redirectUri, state) {
   const params = new URLSearchParams({
     client_id: clientId(),

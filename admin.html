@@ -67,16 +67,31 @@
       <button id="new-round" type="button">Start new round</button>
     </section>
 
-    <section class="controls">
-      <label>Add Scribe (Twitch username) <input id="scribe-name" type="text" autocomplete="off" /></label>
-      <button id="add-scribe" type="button">Add</button>
+    <section id="scribes" hidden>
+      <h2>Scribes</h2>
+      <table>
+        <tbody id="scribe-list"></tbody>
+        <tfoot>
+          <tr>
+            <td><input id="scribe-name" type="text" autocomplete="off" placeholder="Twitch username" /></td>
+            <td><button id="add-scribe" type="button">Add</button></td>
+          </tr>
+        </tfoot>
+      </table>
     </section>
 
     <p id="round-info" class="game-name"></p>
 
     <p id="admin-message"></p>
     <section class="scores">
-      <h2>Scoreboard <button id="reset-scores" type="button">Reset</button></h2>
+      <h2>
+        Scoreboard
+        <button id="copy-entries" type="button" title="Copies the leaderboard to the clipboard">
+          Copy Leaderboard
+        </button>
+        <button id="reset-scores" type="button">Reset</button>
+        <span id="copy-message"></span>
+      </h2>
       <ol id="scoreboard"></ol>
     </section>
 
